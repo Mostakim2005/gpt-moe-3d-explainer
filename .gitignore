@@ -26,3 +26,10 @@ dist-ssr
 # Local tooling / runtime artifacts
 .infigraph/
 .devserver.pid
+.preview.log
+*.err.log
+
+# Verification sandbox: keep the scripts, drop the dependencies and the
+# screenshots/reports they generate (see docs/verification.md).
+.tools/node_modules/
+.tools/out/

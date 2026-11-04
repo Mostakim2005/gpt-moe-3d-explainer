@@ -16,12 +16,19 @@ interface Props {
   /** Cycle a highlight across rows to show that each row is one distribution. */
   sweep?: boolean;
   delay?: number;
+  /**
+   * Paint cells above the diagonal as explicitly masked (future tokens that a
+   * causal model cannot read). The matrix values there must already be 0.
+   */
+  causal?: boolean;
 }
 
 const OFF = new THREE.Color('#0c1730');
 const MID = new THREE.Color(C.cyan);
 const HOT = new THREE.Color(C.violet);
 const WHITE = new THREE.Color('#ffffff');
+/** Colour for a cell the causal mask blocks. Must stay clearly distinct from OFF. */
+const MASKED = new THREE.Color('#3a1230');
 
 /**
  * Attention / routing matrix as a single instanced grid.
@@ -38,6 +45,7 @@ export function HeatmapPlane({
   tilt = -0.18,
   sweep = true,
   delay = 0,
+  causal = false,
 }: Props) {
   const mesh = useRef<THREE.InstancedMesh>(null);
   const { ref } = usePresence(range, delay);
@@ -50,10 +58,16 @@ export function HeatmapPlane({
   const color = useMemo(() => new THREE.Color(), []);
 
   const cells = useMemo(() => {
-    const arr: Array<{ x: number; y: number; v: number; row: number }> = [];
+    const arr: Array<{ x: number; y: number; v: number; row: number; col: number }> = [];
     for (let i = 0; i < n; i++) {
       for (let j = 0; j < n; j++) {
-        arr.push({ x: start + j * step, y: -start - i * step, v: matrix[i][j] ?? 0, row: i });
+        arr.push({
+          x: start + j * step,
+          y: -start - i * step,
+          v: matrix[i][j] ?? 0,
+          row: i,
+          col: j,
+        });
       }
     }
     return arr;
@@ -86,6 +100,13 @@ export function HeatmapPlane({
 
     for (let i = 0; i < cells.length; i++) {
       const c = cells[i];
+      if (causal && c.col > c.row) {
+        // Blocked: the query may not look at a later key. Painted a flat warning
+        // colour so the triangular shape reads even at a glance.
+        color.copy(MASKED);
+        m.setColorAt(i, color);
+        continue;
+      }
       color.copy(OFF).lerp(MID, c.v);
       if (c.v > 0.45) color.lerp(HOT, (c.v - 0.45) * 1.4);
       if (c.row === head) color.lerp(WHITE, 0.22 + c.v * 0.35);

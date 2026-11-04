@@ -19,6 +19,13 @@ export default defineConfig({
   },
   optimizeDeps: {
     exclude: ['kitten-tts-js'],
+    // jszip's package.json maps "./lib/index" to "dist/jszip.min.js" under
+    // "browser" — a UMD bundle with no ESM exports. In the main thread Vite
+    // pre-bundles it into ESM, but the TTS worker's module graph is built
+    // separately, so the worker saw the raw UMD file and died on
+    // "does not provide an export named 'default'". Pre-bundling it explicitly
+    // gives the worker the same CJS→ESM interop the main thread already gets.
+    include: ['jszip'],
   },
   worker: {
     format: 'es',

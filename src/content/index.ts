@@ -2,7 +2,7 @@ import { chapters } from './moeSteps';
 import type { Chapter, ChapterDef, Step } from './types';
 
 export { chapters };
-export type { Chapter, ChapterDef, Step, CameraPose, KeyNumber } from './types';
+export type { Chapter, ChapterDef, Step, CameraPose, KeyNumber, Term } from './types';
 
 export function getChapter(id: Chapter): ChapterDef {
   return chapters.find((c) => c.id === id) ?? chapters[0];

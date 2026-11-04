@@ -56,6 +56,20 @@ export function NarrationPanel() {
           <p>{current.why}</p>
         </div>
 
+        {current.terms && current.terms.length > 0 && (
+          <div className="terms-block">
+            <span className="terms-label">Terms introduced here</span>
+            <dl className="terms-list">
+              {current.terms.map((t) => (
+                <div key={t.term} className="term">
+                  <dt>{t.term}</dt>
+                  <dd>{t.meaning}</dd>
+                </div>
+              ))}
+            </dl>
+          </div>
+        )}
+
         {current.tryIt && (
           <div className="try-block">
             <span className="try-label">Try it</span>

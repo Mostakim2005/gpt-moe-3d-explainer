@@ -1,29 +1,36 @@
 import { OrbitControls } from '@react-three/drei';
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { useSceneStore } from '../state/useSceneStore';
 import { chapters } from '../content';
 
-const targetPos = new THREE.Vector3();
-const targetLook = new THREE.Vector3();
-
 type Pose = { p: [number, number, number]; t: [number, number, number] };
 
-/** Where the camera wants to be for a pose, given the canvas aspect. */
-function placePose(pose: Pose, aspect: number) {
-  targetLook.set(pose.t[0], pose.t[1], pose.t[2]);
+/**
+ * Where the camera wants to be for a pose, given the canvas aspect.
+ *
+ * Writes into caller-supplied vectors rather than module-level scratch objects:
+ * a shared mutable temp is one more thing that has to stay in sync with the
+ * render loop, and nothing here is hot enough to need the allocation saving.
+ */
+function placePose(
+  pose: Pose,
+  aspect: number,
+  outPos: THREE.Vector3,
+  outLook: THREE.Vector3,
+): void {
+  outLook.set(pose.t[0], pose.t[1], pose.t[2]);
   // Narrow viewports lose horizontal field of view first, so back the camera
   // off proportionally instead of cropping the scene. The canvas here is often
   // taller than it is wide once the narration column is docked.
   const pullBack = THREE.MathUtils.clamp(1.45 / Math.max(0.45, aspect), 1, 2.1);
-  targetPos
+  outPos
     .set(pose.p[0], pose.p[1], pose.p[2])
-    .sub(targetLook)
+    .sub(outLook)
     .multiplyScalar(pullBack)
-    .add(targetLook);
-  return { pos: targetPos, look: targetLook };
+    .add(outLook);
 }
 
 /**
@@ -43,6 +50,10 @@ export function CameraRig() {
   const step = useSceneStore((s) => s.step);
 
   const pose = chapters.find((c) => c.id === chapter)?.steps[step]?.camera;
+
+  // Scratch vectors for the damp targets, allocated once per mount.
+  const targetPos = useMemo(() => new THREE.Vector3(), []);
+  const targetLook = useMemo(() => new THREE.Vector3(), []);
 
   useEffect(() => {
     auto.current = true;
@@ -65,6 +76,8 @@ export function CameraRig() {
     const c = controls.current;
     if (!c || !pose) return;
     const d = Math.min(dt, 0.05);
+    const aspect = size.width / Math.max(1, size.height);
+    placePose(pose, aspect, targetPos, targetLook);
 
     if (!auto.current) {
       c.enabled = true;
@@ -72,10 +85,14 @@ export function CameraRig() {
     }
 
     c.enabled = false;
-    const aspect = size.width / Math.max(1, size.height);
-    const { pos: targetPos, look: targetLook } = placePose(pose, aspect);
 
+    // Mutating the camera and the controls' target each frame is how R3F and
+    // OrbitControls are meant to be driven; there is no declarative equivalent
+    // that damps smoothly. React Compiler flags the write because it cannot
+    // prove `camera` is an external object — it is: it lives in the R3F store,
+    // not in React state, and nothing here is a React render-path value.
     const lambda = 4.2;
+    // oxlint-disable-next-line react/immutability
     camera.position.x = THREE.MathUtils.damp(camera.position.x, targetPos.x, lambda, d);
     camera.position.y = THREE.MathUtils.damp(camera.position.y, targetPos.y, lambda, d);
     camera.position.z = THREE.MathUtils.damp(camera.position.z, targetPos.z, lambda, d);
@@ -89,25 +106,6 @@ export function CameraRig() {
       c.update();
     }
   });
-
-  // Dev-only: jump straight to the current pose. The automated label audit runs
-  // in a background tab where the render loop is paused, so a glide would never
-  // make progress.
-  useEffect(() => {
-    if (!import.meta.env.DEV) return;
-    (window as unknown as Record<string, unknown>).__snapCam = () => {
-      const c = controls.current;
-      if (!c || !pose) return false;
-      const aspect = size.width / Math.max(1, size.height);
-      const { pos, look } = placePose(pose, aspect);
-      camera.position.copy(pos);
-      c.target.copy(look);
-      auto.current = false;
-      c.enabled = true;
-      c.update();
-      return true;
-    };
-  }, [pose, camera, size]);
 
   return (
     <OrbitControls

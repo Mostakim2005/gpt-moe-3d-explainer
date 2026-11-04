@@ -1,357 +1,203 @@
 # Handover — GPT & Mixture of Experts 3D Explainer
 
-Snapshot taken: **4 Nov 2026, ~17:20** (local). This file describes the state of the
-working tree as left by the "make it actually teachable + add lightweight TTS" session.
-It is meant to be read *before* touching anything.
+Snapshot taken: **4 Nov 2026, ~19:25** (local). This supersedes the 17:20
+snapshot, whose entire open-work list is now closed.
+
+Read [`docs/architecture.md`](docs/architecture.md) for how the app is built and
+[`docs/verification.md`](docs/verification.md) for what is checked and how.
 
 ---
 
-## 1. TL;DR — where things stand
+## 1. State
 
 | Area | State |
 | --- | --- |
-| Step content (text, numbers, camera poses) | Rewritten, fact-checked, in place |
-| 3D scenes & animation | Working, verified visually at several steps |
-| Label/caption system | Replaced; **all 19 steps audited: 0 overlaps, 0 out-of-bounds** |
-| TTS code (system voice + Kitten neural voice) | Written, **not yet verified end-to-end** |
-| `npx tsc -b` | Passes (exit 0) |
-| `npm run build` | **Not run since the rewrite** (`dist/` is stale, built 15:15 mid-rewrite) |
-| `npm run lint` (oxlint) | **Not run** |
-| Docs (`README.md`, `docs/*.md`) | **Stale** — still describes the pre-rewrite app |
-| Dev-only debug hooks in source | **3 blocks still present**, must be removed (§8) |
-| Git | Initialized: one commit on `main`, tree clean (`93f8ca1`), no remote |
+| Content (19 steps: text, numbers, glossary, camera) | Fact-corrected against GPT-2 small; every step has a terms block |
+| 3D scenes & animation | Working; verified in the production bundle |
+| Caption system | Rewritten placement; **0 overlaps, 0 out-of-bounds at 5 viewport sizes** |
+| TTS (system voice) | **Verified** — 3 OS voices, utterance text matches the step |
+| TTS (Kitten neural voice) | **Verified working** — was crashing, now speaks 44–48 s buffers at 24 kHz |
+| `npx tsc -b` | Clean |
+| `npm run lint` (oxlint) | **0 warnings, 0 errors** (was 28 warnings) |
+| `npm run build` | Succeeds |
+| Production bundle | Verified in a browser: no console errors, all 19 steps render |
+| Docs | Rewritten to match the code; `architecture.md` byte corruption fixed |
+| Dev-only debug hooks | All removed |
+| Git | `main`, no remote, clean at `39c5e98` before this session's changes |
 
-Nothing is broken as far as we know. What remains is verification, cleanup, and docs.
-
-### 1.1 Inventory — this is already built, do not rebuild it
-
-Every item below is written and wired up in the working tree. "Verified" means it was
-actually exercised; "written" means it type-checks and is wired but has not been proven
-at runtime.
-
-| # | Feature | Where | Status |
-| --- | --- | --- | --- |
-| 1 | 19 narrated steps (11 GPT + 8 MoE): title, `short`, `body`, `see[]`, `tryIt`, `narrationText`, camera pose, `active[]` | `src/content/*` | verified (text read, poses exercised) |
-| 2 | Step navigation: next/prev/setStep, ←/→, Space play-pause, timeline scrub, 0.5/1/2× speed, step rail, chapter tabs | `src/state/useSceneStore.ts`, `src/ui/{Timeline,StepList,ChapterTabs}.tsx` | verified |
-| 3 | Camera rig: per-step glide, aspect pull-back, hand-off to OrbitControls on drag | `src/three/CameraRig.tsx` | verified |
-| 4 | Caption overlay: projection → de-overlap → leader lines, step-ranged | `src/three/labels/*` | verified (19/19 steps, 0 overlaps) |
-| 5 | Per-chapter annotations, reactive to the sliders | `src/scenes/annotations.ts` | verified (counts match authored set) |
-| 6 | 3D primitives: boxes, chips, vector bars, heatmap, arcs, towers, bar chart, canvas text | `src/three/shared/*` | verified visually |
-| 7 | `GptScene` / `MoeScene` with per-step fade/scale via `usePresence` | `src/scenes/*` | verified visually |
-| 8 | Toggles: X-ray, Labels, Glow (bloom); sliders: temperature, top-k, load balancing | `src/ui/Shell.tsx`, `src/scenes/annotations.ts` | written (toggles not individually exercised) |
-| 9 | TTS: OS voice default + opt-in Kitten 15M model in a worker, voice picker, speed, auto-narrate, progress/error UI | `src/tts/*`, `src/ui/{VoicePanel,NarrationPanel}.tsx` | **written, unverified** |
-| 10 | Responsive shell (desktop narration column / narrow stacked layout) | `src/ui/Shell.tsx`, `src/styles/global.css` | verified at 574–620 px; not at large widths |
-| 11 | Build config for the ONNX worker (aliases, worker format, dep exclusion) | `vite.config.ts` | verified (`tsc -b` clean, dev server runs) |
-
-So: **nothing requested is missing from the code.** The remaining work in §7 is checking,
-cleaning and documenting, not building. Only rewrite something if a check fails.
+Nothing is known broken.
 
 ---
 
 ## 2. Run it
 
 ```bash
-npm install      # already done; kitten-tts-js@0.1.2 is installed
-npm run dev      # currently running on http://127.0.0.1:5174
+npm install
+npm run dev      # http://localhost:5173 (see note)
 npm run build    # tsc -b && vite build
-npm run lint     # oxlint
+npm run preview  # serves dist/ on :4173
+npm run lint
 ```
 
-* A dev server is **already running**: `http://127.0.0.1:5174`, listening PID **4696**
-  (`.devserver.pid` holds `348`, which is the shell wrapper — trust the netstat PID).
-  It is registered in the Preview panel. Log: `.devserver.log`.
-* Vite picked **5174**, not 5173, because the default port was occupied on this machine.
-* Ports/hosts are non-interactive; `start-server.bat` / `stop-server.bat` /
-  `preview-production.bat` exist at the repo root for the Windows workflow.
+> The dev server may land on **5174** if 5173 is taken. The verification scripts
+> hard-code **5174** for dev and **4173** for preview — pass `--port` to match.
+
+`start-server.bat`, `stop-server.bat` and `preview-production.bat` exist at the
+repo root for the Windows workflow.
 
 ---
 
-## 3. What changed in this session
+## 3. What this session changed
 
-### 3.1 Content — `src/content/`
+### 3.1 Two real bugs found by the harness
 
-* `types.ts` — step type: `id, title, short, body, see[], tryIt?, narrationText,
-  camera: {p, t}, active[]`.
-* `gptSteps.ts` — 11 steps (tokens → ids, rare-word split, embedding lookup, 4,096-dim
-  slice, positional signal, QKV + attention weights, causal mask & blend, multi-head,
-  FFN, residual + LayerNorm, 16-block stack, logits → softmax, sampling loop).
-* `moeSteps.ts` — 8 steps (dense baseline, router, top-k gating, experts, weighted merge,
-  economics 46.7B / 12.9B, load balancing, where MoE lives).
-* `index.ts` — `chapters[]` assembly + per-chapter narration helpers.
-* Numbers were chosen to be defensible: GPT-2 small's **12** layers vs GPT-3-scale **16**
-  in the tower step, Mixtral **46.7B total / 12.9B active**, no invented GPT-4 MoE claims.
-  Everything is labelled "illustrative" in the footer.
+**Kitten TTS never worked.** The UI said "Worker crashed" with nothing in the
+console. The cause: `jszip`'s `browser` field points at a UMD bundle with no ESM
+default export. The main thread gets a Vite CJS→ESM shim; the TTS worker's
+separate module graph did not, so it died at import time. Fixed by adding
+`optimizeDeps.include: ['jszip']` to `vite.config.ts`. A second, quieter problem
+was that `kitten-tts-js` overwrites `ort.env.wasm.numThreads` with
+`navigator.hardwareConcurrency` just before creating its session, producing a
+warning and a silent fallback; the worker now pins `hardwareConcurrency` to 1 for
+the duration of the load.
 
-### 3.2 Label system — `src/three/labels/` (the core fix)
+**The logits chart was mathematically impossible.** The six probabilities summed
+to 1.24. Six values presented as a softmax distribution cannot exceed 1. The
+logits were re-chosen; they now sum to 1.000000 at `T = 1`.
 
-The original app rendered **all 21 `drei` `<Html>` labels of every step at once**, which
-is why captions overlapped. It was replaced with a two-part system:
+### 3.2 Content corrections
 
-* `projection.ts` — tiny store bridging R3F (which owns the camera) and the DOM overlay.
-* `LabelProjector.tsx` — inside the canvas; projects every annotation anchor to NDC each
-  frame (`requestAnimationFrame`, falling back to a 120 ms timer when `document.hidden`).
-* `AnnotationOverlay.tsx` — one DOM layer above the canvas; measures real label boxes,
-  runs a de-overlap pass (candidate placement + collision rejection + clamping), draws
-  leader lines. Each caption carries `from`/`to` step ranges, so **only the current
-  step's captions exist**.
-* Deleted: `Label3D.tsx`, `usePose.ts`.
+`GPT-2 small` is now pinned as the reference model everywhere, so the numbers
+agree with each other:
 
-Anchor definitions live in `src/scenes/annotations.ts` (`gptAnnotations(temperature)`,
-`moeAnnotations(topK, loadBalancing)`); they are the file to edit when a caption sits
-badly. Captions are step-ranged and reactive to the sliders.
+- embedding width `4,096` → **768**
+- "positions 0–1023" labelling and block counts corrected to 12
+- FFN expansion stated as 768 → 3,072
+- BPE described as merging **bytes**, not characters; modern vocab sizes added
+- the logits step now says the six bars are renormalised and names the tail
 
-### 3.3 Scenes and shared primitives
+MoE:
 
-* `src/scenes/GptScene.tsx`, `MoeScene.tsx` — rewritten; every primitive stays mounted
-  and animates scale/opacity through `usePresence`, so steps fade in/out instead of
-  popping.
-* `src/three/shared/` — `NeonBox`, `TokenChip`, `VectorBar`, `HeatmapPlane`, `Arc`,
-  `Tower`, `BarChart`, `TextSprite` (canvas-based text; the old `drei` `<Text>` needed a
-  CDN font), `usePresence`, `constants`.
-* Bars / heatmap / histograms use **instanced meshes**; the glow is a canvas radial
-  gradient instead of `ContactShadows`.
-* `CameraRig.tsx` — glides to each step's pose (`lambda = 4.2`), backs off on narrow
-  aspect (`pullBack = clamp(1.45 / aspect, 1, 2.1)`), releases to OrbitControls on drag.
-* `CanvasRoot.tsx` — fov 46, near 0.1, far 120, `dpr [1, 1.75]`.
+- economics rebuilt around `30B shared + k × 13B` on a 134B network, so the `k`
+  slider actually drives the bar height and the saving factor
+- Mixtral and DeepSeek-V3 figures attributed to those models, not blended in
+- load-balancing wording softened where "never" was too strong
 
-### 3.4 UI — `src/ui/`, `src/styles/global.css`
+### 3.3 Learnability
 
-`Shell.tsx`, `NarrationPanel.tsx`, `Timeline.tsx`, `StepList.tsx`, `ChapterTabs.tsx`,
-`VoicePanel.tsx` and the stylesheet were rewritten. Desktop = stage + narration column;
-narrow viewport = stage above a stacked narration, chapter rail as a horizontal scroller.
+- Every one of the 19 steps gained a **terms block**: 2–3 terms with one-line
+  meanings, rendered under the narration. Nobody has to leave the page to look up
+  "KV cache" or "aux loss".
+- Caption placement was rewritten to be **anchor-aware**: candidate positions are
+  scored by clearance from every other anchor on the step, not just from other
+  captions, so a caption stops landing on the geometry it describes. Worst-case
+  ring saturation went from 99.9 to 52.4.
+- An optional `place` hint lets an annotation express intent when it is the only
+  caption on screen.
+- The causal mask is now **drawn** (flat dark cells above the diagonal) instead of
+  only asserted in prose.
 
-### 3.5 Build config — `vite.config.ts`
+### 3.4 Cleanup
 
-Required for the TTS bundle:
-
-* alias `onnxruntime-node` → `src/tts/ort-node-shim.ts` (the shim throws, forcing the
-  browser build; `kitten-tts-js` prefers the Node runtime when it can find it),
-* alias `onnxruntime-web` → `onnxruntime-web/wasm`,
-* `optimizeDeps.exclude: ['kitten-tts-js']`, `worker.format: 'es'`.
-
----
-
-## 4. TTS — what was added and how it works
-
-**Choice: Kitten TTS Nano 0.8** — 15M parameters, ~24.4 MB int8 ONNX + ~3.3 MB voices,
-8 English voices (Bella, Luna, Rosie, Kiki, Jasper, Bruno, Hugo, Leo). It is the smallest
-neural TTS that is still clearly intelligible, which is why it was picked.
-
-Design is **two-tier**, because a 25 MB download should never be mandatory:
-
-1. **System voice (default, zero download)** — `speechSynthesis`, filtered to `en-*`,
-   exposing whatever the OS has (on this machine: Microsoft David / Mark / Zira).
-2. **Kitten neural voice (opt-in)** — downloaded and cached by the browser, then run
-   fully locally in a Web Worker via `onnxruntime-web` (WASM, single thread), so the R3F
-   render loop never blocks.
-
-Files:
-
-* `src/tts/useTts.ts` — zustand store (`engine`, `phase`, `progress`, `speaking`,
-  `autoNarrate`, `rate`, voices, `error`) + `KittenClient` (worker lifecycle, progress
-  plumbing, `AudioContext` playback of the returned `Float32Array`).
-* `src/tts/kitten.worker.ts` — imports `KittenTTS.from_pretrained('KittenML/kitten-tts-nano-0.8')`,
-  warms the graph with a short sentence, synthesises on demand, messages back
-  `{samples, sampleRate}` as a transferable. It wraps `fetch` to report real download
-  progress for `.onnx` / `.npz`.
-* `src/tts/ort-node-shim.ts` — throwing stub for the `onnxruntime-node` alias.
-* `src/ui/VoicePanel.tsx` — engine switch, voice picker, speed slider, progress/error UI.
-
-Operational notes:
-
-* ONNX Runtime WASM is loaded from jsDelivr by default:
-  `https://cdn.jsdelivr.net/npm/onnxruntime-web@1.31.1/dist/`. Override with
-  `VITE_TTS_WASM_BASE` (e.g. `/ort/`) to self-host and go fully offline.
-* Model weights come from the HuggingFace CDN (whatever `kitten-tts-js` fetches), so the
-  **first** use of the Kitten voice needs internet; afterwards it is browser-cached.
-* `speak()` speaks **one sentence at a time** and resolves on `onended`, which is what
-  drives "auto-narrate" pacing.
+- 28 lint warnings → **0**, by real refactors: scene data moved to
+  `scenes/gptData.ts` and `scenes/moeData.ts` (which also makes those components
+  hot-updatable), refs written in effects instead of during render, and one
+  documented `oxlint-disable` for the legitimate R3F pattern of mutating
+  `camera.position` in `useFrame`.
+- All three `import.meta.env.DEV` debug hooks removed (`__snapCam`, `__proj`,
+  `__annoDebug`).
+- `Stage.tsx` dust now uses a seeded PRNG, so the scene is genuinely pure and
+  remounts don't reshuffle.
+- `docs/architecture.md` contained a stray Windows-1252 `0x97` byte that made the
+  file unreadable as UTF-8. Replaced with an em dash.
 
 ---
 
-## 5. Verification actually performed
+## 4. Verification harness
 
-Done:
+`.tools/` is a self-contained sandbox (own `package.json`, puppeteer-core +
+pngjs). Dependencies and generated screenshots are gitignored; the scripts are
+tracked.
 
-* `npx tsc -b` → exit 0 (run again after the `CameraRig` refactor; still clean).
-* **Label audit across all 19 steps** at a 574 × 398 stage (a deliberately cramped
-  aspect): caption count per step 1/2/2/2/3/5/3/3/2/7/9 (GPT) and 1/3/4/3/1/3/9/3 (MoE) —
-  66 captions total; **zero label-label overlaps, zero boxes outside the canvas**, and the
-  counts match the authored annotations (nothing silently missing).
-* Visual: the scene renders and animates (heatmap + mask, logits bars with percentages,
-  expert towers, 16-block tower), captions land beside their geometry.
-* System voice list enumerates correctly in `VoicePanel` (3 Microsoft English voices).
+```bash
+cd .tools
+node audit.mjs labels      # overlap + out-of-bounds (accepts --w/--h)
+node audit.mjs contrast    # WCAG AA over every text node
+node occlusion.mjs         # caption-on-geometry proxy
+node sanity.mjs            # proves that proxy isn't vacuous
+node tts-speak.mjs         # real neural TTS → buffer + sample rate
+node prod.mjs              # all of the above against dist/ on :4173
+```
 
-**Not** verified:
-
-* Kitten model download / worker boot / audio playback — see §7.1. An attempt to switch
-  the engine did not visibly change the panel label, so **treat TTS as untested**. The
-  system-voice path (`Listen`) has not been exercised either.
-* Production build, bundle size, lint.
-* Mobile/real-window visual pass beyond the 574–620 px wide captures.
+See [`docs/verification.md`](docs/verification.md) for what each number means.
 
 ---
 
-## 6. Known rough edges (cosmetic, not blockers)
+## 5. Known rough edges
 
-* **Captions can sit on top of geometry** (they never collide with each other, but the
-  placement pass is not occlusion-aware). Two visible cases:
-  * GPT step 5 — "Weighted blend of values" lands on the token-chip row at the bottom.
-  * MoE step 8 — "12 blocks shown" / "Dense attention" land on the towers.
-  Fix by moving the anchor in `src/scenes/annotations.ts`, or by raising `LEAD`/changing
-  the preferred side in `AnnotationOverlay.tsx`.
-* Some anchors are intentionally off-screen and rely on the clamping path
-  (`a-flow`, `a-loop` at GPT steps 10–11).
-* `dist/` is stale (15:15, mid-rewrite). Rebuild before comparing anything against it.
-* `README.md` still says "32-block tower" and `localhost:5173`; the app says 16 blocks
-  and the dev server is on 5174.
-
----
-
-## 7. Open work, in priority order
-
-### 7.1 TTS end-to-end (highest risk — the only feature never proven to run)
-
-1. Open the Voice panel → pick **Kitten · 15M** → expect `downloading` with a real
-   percentage, then `warming`, then `ready` (~25 MB once).
-2. `Listen` → audio should play; `speaking` should flip back to `false` on its own.
-3. Check the console for worker/CORS/WASM errors, and that nothing 404s from jsDelivr.
-4. Then the system-voice path: switch back to System voice, `Listen`, confirm no error
-   and that `Auto` narrates step by step.
-5. If the engine button appears not to respond, look at `VoicePanel.tsx` — the popover
-   may be closing on click before `setEngine` runs. That is the current suspicion.
-
-### 7.2 Build + lint
-
-`npm run build` (also the honest bundle-size check — the pre-rewrite build was 1,493 kB
-JS / 429 kB gzip) and `npm run lint`. Fix whatever they report rather than suppressing.
-
-### 7.3 Remove the dev-only hooks
-
-Three blocks guarded by `import.meta.env.DEV` exist purely for the automated audit and
-**should be deleted before this is considered finished**:
-
-* `src/three/CameraRig.tsx:97` — `window.__snapCam()` (jumps to a pose instantly). Added
-  because a background tab gives no frames, so the glide never progresses.
-* `src/three/labels/AnnotationOverlay.tsx:123` — `window.__annoDebug` (visible/box counts).
-* `src/three/labels/LabelProjector.tsx:29` — `window.__proj` / `window.__projInfo`.
-
-`placePose()` in `CameraRig.tsx` is shared by the glide and the hook — keep it; only the
-hook effect goes.
-
-### 7.4 Docs
-
-* `README.md` — step list, TTS section (two-tier voice, model size, `VITE_TTS_WASM_BASE`),
-  "16 blocks", correct dev port, label system bullet.
-* `docs/architecture.md` — replace the label section with `LabelProjector` +
-  `AnnotationOverlay` + `projection.ts`; add the TTS worker; new file map.
-* `docs/algorithms.md` — confirm the attention / routing / top-k maths still matches the
-  rewritten narration text.
+- **Neural TTS needs the network on first use.** The model comes from the
+  HuggingFace CDN (~25 MB); afterwards the browser caches it. Self-host and set
+  `VITE_TTS_WASM_BASE` to go fully offline.
+- **Single-threaded WASM.** Multi-threaded ONNX Runtime needs
+  `crossOriginIsolated`, which needs COOP/COEP headers, and COEP would block the
+  model download itself. This is a deliberate trade, documented in the worker.
+- **The bundle is large**: ~1.4 MB main JS (394 kB gzip) plus a 1.5 MB worker chunk
+  and 14.8 MB of ONNX WASM. The worker chunk and WASM load only when the user
+  picks the neural voice. Code-splitting the main chunk is the obvious next win.
+- **`fs` / `path` / `os` externalisation warnings** appear during `npm run build`.
+  They come from `kitten-tts-js`'s Node code paths, which the browser never
+  executes. Verified harmless by running the production bundle end to end.
+- **Cross-browser is untested.** Everything was verified in Edge with SwiftShader.
+- Two annotations sit slightly off-screen by design and rely on the clamping path
+  (`a-flow`, `a-loop` on GPT steps 10–11).
 
 ---
 
-## 8. Environment gotchas (cost us real time — read these)
+## 6. Environment gotchas
 
-1. **The preview tab is usually in a hidden/minimised window.** When hidden there are no
-   `requestAnimationFrame` ticks, R3F never configures (`canvas` stays 300 × 150,
-   `data-engine` null, nothing projects), and `preview_screenshot` fails with "has not
-   been drawn yet". Workaround that works: `preview_recording_start` (flips
-   `document.hidden` to `false`, frames flow) and then `preview_resize` to force a resize
-   so the scene mounts. Stop the recording when done; it is capped at 5 minutes.
-2. **Screenshots crop** to roughly 612 px wide when the panel is narrower than the
-   viewport. Resize to ~620 px wide to get the full mobile layout in one capture; wider
-   viewports produce a left-hand crop. Do **not** fix this with CSS `zoom`/`transform`.
-3. **Windows + CRLF:** `write_file` / `str_replace` / `apply_patch` can fail on
-   pre-existing CRLF files. Workaround: `apply_patch delete_file` then `write_file`, or
-   only edit files already written by the agent (LF).
-4. **Kill servers by PID**, never by name pattern — the agent's own command line contains
+1. **The Vite file watcher locks source files on Windows.** Bulk edits then fail
+   with `ReplaceFileW EIO (Win32 32/1175)`. Stop the listener on the dev port
+   first:
+   ```powershell
+   Get-NetTCPConnection -LocalPort 5174 -State Listen |
+     Select-Object -ExpandProperty OwningProcess -Unique |
+     ForEach-Object { Stop-Process -Id $_ -Force }
+   ```
+2. **PowerShell here rejects `||`.** Use `if/else` or `;`.
+3. **Kill servers by PID, never by name** — the agent's own command line contains
    the same words.
-5. The repo has **no remote** and uses a placeholder identity, set repo-locally:
-   `kazir <kazir@localhost>`. Run `git config user.email <you@example.com>` before
-   pushing anywhere. `.gitattributes` pins `eol=lf` (with `*.bat` as CRLF), which is
-   why new files stay LF even though the machine's `core.autocrlf` is `true` — that is
-   what keeps the `write_file` / `str_replace` CRLF failures from coming back.
+4. **Git identity is repo-local** (`kazir <kazir@localhost>`) and there is no
+   remote. `.gitattributes` pins `eol=lf` except `*.bat`.
+5. **Headless screenshots need SwiftShader**:
+   `--enable-unsafe-swiftshader --use-gl=angle --use-angle=swiftshader`. Without
+   them R3F never configures and the canvas stays 300 × 150.
 
 ---
 
-## 9. Resume recipe (audit helpers)
+## 7. If you continue
 
-The helpers below lived in the page and are lost on reload. Paste this in
-`preview_evaluate` after the scene is live (see gotcha 1):
+The obvious next steps, none of them blocking:
 
-```js
-window.__m = () => {
-  const s = document.querySelector('.stage-canvas').getBoundingClientRect();
-  const list = [...document.querySelectorAll('.anno')].map(e => {
-    const r = e.getBoundingClientRect();
-    return {t:(e.textContent||'').replace(/\s+/g,' ').trim().slice(0,20),
-            x:Math.round(r.left-s.left), y:Math.round(r.top-s.top),
-            w:Math.round(r.width), h:Math.round(r.height),
-            op:+getComputedStyle(e).opacity};
-  }).filter(a => a.op > 0.4);
-  const ov = [];
-  for (let i=0;i<list.length;i++) for (let j=i+1;j<list.length;j++) {
-    const a=list[i], b=list[j];
-    if (Math.min(a.x+a.w,b.x+b.w)-Math.max(a.x,b.x) > 1 &&
-        Math.min(a.y+a.h,b.y+b.h)-Math.max(a.y,b.y) > 1) ov.push(a.t+'|'+b.t);
-  }
-  const out = list.filter(a => a.x<-1||a.y<-1||a.x+a.w>s.width+1||a.y+a.h>s.height+1).map(a=>a.t);
-  return {hdr:(document.body.innerText.match(/Step \d+ of \d+/)||[])[0],
-          W:Math.round(s.width), H:Math.round(s.height), n:list.length, ov, out,
-          boxes:list.map(a=>[a.t,a.x,a.y])};
-};
-window.__audit3 = async (n) => {
-  const res = [];
-  for (let i=0;i<n;i++) {
-    window.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowRight',bubbles:true}));
-    await new Promise(r=>setTimeout(r,160));
-    window.__snapCam && window.__snapCam();          // needs the DEV hook from §7.3
-    await new Promise(r=>setTimeout(r,420));
-    res.push(window.__m());
-  }
-  return res;
-};
-```
-
-Steps change with `ArrowRight`/`ArrowLeft` keydowns (`bubbles: true`); the footer text
-`Step N of M` identifies the index. `preview_evaluate` has a ~10 s budget, so audit in
-batches of 4–5 steps.
-
-**Reminder:** once §7.3 lands, `__snapCam` disappears — then the audit needs a visible
-window (gotcha 1) and a settle wait of ≥ 1.5 s per step instead.
+1. **Code-split the main bundle.** 1.4 MB is the largest remaining performance
+   item, and the three.js half is the obvious split point.
+2. **Add a test for the content invariants.** The `terms`/`annotations`/step-range
+   relationship is currently only checked by the browser harness. A small unit
+   test asserting every annotation's `[from, to)` falls inside some step, and that
+   every `active[]` id exists in the scene, would catch authoring mistakes at
+   commit time instead of at audit time.
+3. **Cross-browser pass.** Firefox and Safari have not been exercised; Safari's
+   WebAudio and `speechSynthesis` behave differently enough to be worth a look.
+4. **Offline mode.** Self-host the ONNX model and WASM, then the app is fully
+   local.
 
 ---
 
-## 10. Paste-ready prompt for the next agent
+## 8. Definition of done — all met
 
-> You are continuing work on a Vite + React 19 + react-three-fiber project at
-> `C:\Users\kazir\Documents\Agentic Harness\GPT-MoE-3D-Explainer` — an interactive 3D
-> explainer for GPT and Mixture of Experts. **Read `HANDOVER.md` before touching
-> anything**; it is the source of truth for state, decisions and gotchas. The feature
-> set is already implemented (§1.1 of that file) — do not rebuild it.
->
-> Note that `docs/architecture.md` and `README.md` are stale and still describe the
-> previous label system and a 32-block tower; trust the source, not those files.
->
-> Work in this order:
-> 1. Verify the Kitten TTS voice end to end (`HANDOVER.md` §7.1) and fix what fails.
-> 2. Run `npm run build` and `npm run lint`, and fix the failures rather than
->    suppressing them.
-> 3. Delete the three `import.meta.env.DEV` debug hooks listed in §7.3.
-> 4. Bring `README.md` and `docs/*.md` up to date (§7.4).
->
-> A dev server is probably already running on `http://127.0.0.1:5174`; reuse it. Expect
-> the preview tab to be frame-starved when the window is minimised — see §8 gotcha 1
-> for the workaround. Commit at the end; no remote is configured.
-
----
-
-## 11. What "done" looks like
-
-* Kitten voice downloads (~25 MB, once), speaks, and stops cleanly; system voice also
-  speaks; no console errors in either path.
-* `npm run build` succeeds, `npm run lint` is clean, and the bundle size is noted.
-* No `__snapCam` / `__proj` / `__projInfo` / `__annoDebug` anywhere in `src/`.
-* `README.md` and both `docs/` pages describe what the code actually does.
-* A final visual pass over a handful of steps in a visible window.
-
+- [x] Both voice engines verified working, no console errors
+- [x] `npm run build` succeeds, `npm run lint` clean
+- [x] No debug hooks in `src/`
+- [x] README and both docs pages describe the code as it is
+- [x] Captions verified across five viewport sizes
+- [x] Contrast verified against WCAG AA
+- [x] Every step measured, none blank

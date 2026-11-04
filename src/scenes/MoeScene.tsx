@@ -6,63 +6,22 @@ import { Arc } from '../three/shared/Arc';
 import { Tower } from '../three/shared/Tower';
 import { BarChart } from '../three/shared/BarChart';
 import { C } from '../three/shared/constants';
-
-export const EXPERT_COUNT = 8;
-
-export const EXPERT_COLORS = [
-  C.cyan,
-  C.violet,
-  C.amber,
-  C.pink,
-  C.green,
-  C.cyan,
-  C.violet,
-  C.amber,
-];
-
-/** Raw router scores for this token (illustrative, sorted descending). */
-export const ROUTER_SCORES = [0.52, 0.38, 0.27, 0.19, 0.12, 0.09, 0.05, 0.03];
-
-/** Layout constants shared with the annotation layer. */
-export const GRID_LAYOUT = {
-  cols: 4,
-  x0: -3.3,
-  xStep: 2.2,
-  y0: 2.9,
-  yStep: 1.8,
-  cell: [1.8, 1.2, 1.0] as [number, number, number],
-};
-
-export const SCORE_LAYOUT = {
-  x: 1.4,
-  y: 0.2,
-  spacing: 0.74,
-  maxHeight: 2.0,
-};
-
-export const HIST_LAYOUT = {
-  spacing: 1.1,
-  height: 2.3,
-  baseY: 0.2,
-};
-
-export function expertPos(i: number): [number, number, number] {
-  const col = i % GRID_LAYOUT.cols;
-  const row = Math.floor(i / GRID_LAYOUT.cols);
-  return [GRID_LAYOUT.x0 + col * GRID_LAYOUT.xStep, GRID_LAYOUT.y0 - row * GRID_LAYOUT.yStep, 0];
-}
-
-export function topKOf(scores: number[], k: number) {
-  return [...scores.keys()].sort((a, b) => scores[b] - scores[a]).slice(0, k);
-}
-
-export function gateWeights(scores: number[], active: number[]) {
-  const total = active.reduce((a, i) => a + scores[i], 0);
-  return scores.map((s, i) => (active.includes(i) ? s / total : 0));
-}
-
-export const HIST_COLLAPSED = [0.62, 0.11, 0.09, 0.06, 0.05, 0.03, 0.02, 0.02];
-export const HIST_BALANCED = [0.16, 0.14, 0.13, 0.12, 0.13, 0.11, 0.11, 0.1];
+import {
+  ECON_LAYOUT,
+  EXPERT_COLORS,
+  EXPERT_PARAMS_B,
+  GRID_LAYOUT,
+  HIST_BALANCED,
+  HIST_COLLAPSED,
+  HIST_LAYOUT,
+  ROUTER_SCORES,
+  SCORE_LAYOUT,
+  TOTAL_PARAMS_B,
+  activeParamsB,
+  capacityScale,
+  expertPos,
+  topKOf,
+} from './moeData';
 
 export function MoeScene() {
   const step = useSceneStore((s) => s.step);
@@ -231,29 +190,51 @@ export function MoeScene() {
 
       {/* ---------- 5-6 · economics ---------- */}
       <group position={[0, 0, 0]}>
+        {/* Full capacity: every parameter, all of it resident in memory. */}
         <NeonBox
           id="econ-total"
-          position={[-3.9, 2.0, 0]}
-          size={[1.8, 4.0, 0.9]}
+          position={[ECON_LAYOUT.totalX, ECON_LAYOUT.baseY + ECON_LAYOUT.fullH / 2, 0]}
+          size={[ECON_LAYOUT.width, ECON_LAYOUT.fullH, 0.9]}
           color={C.violet}
           range={[5, 7]}
+          anchor="bottom"
         />
+        {/* Compute per token: grows with k. */}
         <NeonBox
           id="econ-active"
-          position={[0, 0.55, 0]}
-          size={[1.8, 1.1, 0.9]}
+          position={[
+            ECON_LAYOUT.activeX,
+            ECON_LAYOUT.baseY + (ECON_LAYOUT.fullH * capacityScale(activeParamsB(topK), TOTAL_PARAMS_B)) / 2,
+            0,
+          ]}
+          size={[
+            ECON_LAYOUT.width,
+            ECON_LAYOUT.fullH * capacityScale(activeParamsB(topK), TOTAL_PARAMS_B),
+            0.9,
+          ]}
           color={C.green}
           range={[5, 7]}
           delay={0.15}
           pulse={1}
+          anchor="bottom"
         />
+        {/* Fixed reference: one dense expert, for scale. */}
         <NeonBox
           id="econ-dense"
-          position={[3.9, 0.25, 0]}
-          size={[1.8, 0.5, 0.9]}
+          position={[
+            ECON_LAYOUT.denseX,
+            ECON_LAYOUT.baseY + (ECON_LAYOUT.fullH * capacityScale(EXPERT_PARAMS_B, TOTAL_PARAMS_B)) / 2,
+            0,
+          ]}
+          size={[
+            ECON_LAYOUT.width,
+            ECON_LAYOUT.fullH * capacityScale(EXPERT_PARAMS_B, TOTAL_PARAMS_B),
+            0.9,
+          ]}
           color={C.muted}
           range={[5, 7]}
           delay={0.3}
+          anchor="bottom"
         />
       </group>
 

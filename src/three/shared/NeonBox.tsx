@@ -26,6 +26,12 @@ interface Props {
   radius?: number;
   /** Extra emissive pulse (per second) when active. */
   pulse?: number;
+  /**
+   * Where the box grows from as it appears. `'center'` (default) scales in place;
+   * `'bottom'` rises out of its own base, which is what makes a pair of boxes
+   * readable as a bar chart of proportions.
+   */
+  anchor?: 'center' | 'bottom';
   children?: React.ReactNode;
 }
 
@@ -40,6 +46,7 @@ export function NeonBox({
   delay = 0,
   radius = 0.08,
   pulse = 0,
+  anchor = 'center',
   children,
 }: Props) {
   const group = useRef<THREE.Group>(null);
@@ -64,6 +71,8 @@ export function NeonBox({
     hover.current = THREE.MathUtils.damp(hover.current, hoverTarget, 10, d);
     const scale = Math.max(0.0001, p * (1 + hover.current * 0.06));
     g.scale.setScalar(scale);
+    // Growing from the base keeps a bar's foot planted while its height changes.
+    g.position.y = position[1] + (anchor === 'bottom' ? (size[1] / 2) * (scale - 1) : 0);
     g.visible = p > 0.01;
 
     const t = state.clock.elapsedTime;

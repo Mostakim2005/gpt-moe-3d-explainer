@@ -1,5 +1,8 @@
 export type Tone = 'cyan' | 'violet' | 'amber' | 'green' | 'pink' | 'muted';
 
+/** Preferred side of the anchor that the caption should occupy. */
+export type Placement = 'above' | 'below' | 'left' | 'right';
+
 /**
  * A 2D caption anchored to a point in the 3D scene.
  *
@@ -17,6 +20,13 @@ export interface Annotation {
   from: number;
   to: number;
   tone?: Tone;
+  /**
+   * Which side of the anchor to try first. Worth setting when a caption sits on
+   * top of the shape it describes — the placement pass favours whatever leaves
+   * the most clearance from other captions, but with only one caption on screen
+   * there is nothing to push against, so the hint decides.
+   */
+  place?: Placement;
 }
 
 /** Screen-space result of projecting a caption's anchor. */

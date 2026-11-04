@@ -22,18 +22,38 @@ function useGlowTexture() {
   }, []);
 }
 
+/**
+ * Deterministic PRNG (mulberry32).
+ *
+ * The dust field must look scattered but must also be identical on every mount:
+ * `Math.random()` inside a `useMemo` re-rolls whenever React discards the memo,
+ * so the background visibly reshuffles on a hot reload or a re-mounted canvas.
+ * A fixed seed makes the decoration a pure function of the code.
+ */
+function mulberry32(seed: number) {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
 /** Ground grid, a soft floor glow and slow-drifting dust. */
 export function Stage() {
   const dust = useRef<THREE.Points>(null);
   const glow = useGlowTexture();
 
   const geometry = useMemo(() => {
+    const rand = mulberry32(0x5eed);
     const count = 260;
     const positions = new Float32Array(count * 3);
     for (let i = 0; i < count; i++) {
-      positions[i * 3] = (Math.random() - 0.5) * 34;
-      positions[i * 3 + 1] = Math.random() * 14;
-      positions[i * 3 + 2] = (Math.random() - 0.5) * 34;
+      positions[i * 3] = (rand() - 0.5) * 34;
+      positions[i * 3 + 1] = rand() * 14;
+      positions[i * 3 + 2] = (rand() - 0.5) * 34;
     }
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));

@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useSceneStore } from '../state/useSceneStore';
-import { TokenRow, CHIP_W, type Token } from '../three/shared/TokenChip';
+import { TokenRow, CHIP_W } from '../three/shared/TokenChip';
 import { VectorBarRow } from '../three/shared/VectorBar';
 import { NeonBox } from '../three/shared/NeonBox';
 import { Arc } from '../three/shared/Arc';
@@ -8,50 +8,19 @@ import { HeatmapPlane } from '../three/shared/HeatmapPlane';
 import { Tower } from '../three/shared/Tower';
 import { BarChart } from '../three/shared/BarChart';
 import { C } from '../three/shared/constants';
+import {
+  ATTENTION,
+  GPT_TOKENS,
+  LOGITS_LAYOUT,
+  LOGIT_VALUES,
+  softmax,
+} from './gptData';
 
 const CHIP_STEP = CHIP_W + 0.2;
 const ROW_W = 6 * CHIP_STEP - 0.2;
 const FIRST_X = -ROW_W / 2 + CHIP_W / 2;
 
 const chipX = (i: number) => FIRST_X + i * CHIP_STEP;
-
-export const GPT_TOKENS: Token[] = [
-  { text: 'The', id: 464 },
-  { text: 'cat', id: 3797 },
-  { text: 'sat', id: 3332 },
-  { text: 'on', id: 319 },
-  { text: 'the', id: 262 },
-  { text: 'mat', id: 2603 },
-];
-
-/** Illustrative causal attention: row = query token, column = key token. */
-export const ATTENTION = [
-  [1.0, 0, 0, 0, 0, 0],
-  [0.5, 0.5, 0, 0, 0, 0],
-  [0.2, 0.45, 0.35, 0, 0, 0],
-  [0.1, 0.3, 0.4, 0.2, 0, 0],
-  [0.08, 0.22, 0.3, 0.25, 0.15, 0],
-  [0.05, 0.15, 0.35, 0.25, 0.2, 0],
-];
-
-/** Layout constants shared with the annotation layer so labels land on bars. */
-export const LOGITS_LAYOUT = {
-  spacing: 1.15,
-  maxHeight: 2.4,
-  baseY: 0.2,
-  z: 0.6,
-  barWidth: 0.8,
-};
-
-export const LOGIT_WORDS = ['the', 'a', 'mat', 'rug', 'floor', 'bed'];
-export const LOGIT_VALUES = [2.4, 1.6, 0.9, 0.7, 0.5, 0.2];
-
-/** Softmax with temperature over illustrative logits. */
-export function softmax(logits: number[], temperature: number) {
-  const scaled = logits.map((z) => Math.exp(z / Math.max(0.05, temperature)));
-  const sum = scaled.reduce((a, b) => a + b, 0);
-  return scaled.map((v) => v / sum);
-}
 
 export function GptScene() {
   const step = useSceneStore((s) => s.step);
@@ -140,6 +109,7 @@ export function GptScene() {
         position={[0, 3.4, -0.6]}
         cellSize={0.4}
         tilt={-0.2}
+        causal
       />
 
       {/* ---------- 5 · multi-head ---------- */}

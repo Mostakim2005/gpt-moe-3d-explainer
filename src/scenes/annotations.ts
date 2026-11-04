@@ -2,17 +2,18 @@ import { useMemo } from 'react';
 import { useSceneStore } from '../state/useSceneStore';
 import type { Annotation } from '../three/labels/types';
 import type { Chapter } from '../content/types';
-import { LOGITS_LAYOUT, LOGIT_VALUES, LOGIT_WORDS, softmax } from './GptScene';
+import { LOGITS_LAYOUT, LOGIT_VALUES, LOGIT_WORDS, softmax } from './gptData';
 import {
   EXPERT_COLORS,
-  HIST_COLLAPSED,
   HIST_BALANCED,
+  HIST_COLLAPSED,
   HIST_LAYOUT,
   ROUTER_SCORES,
+  activeParamsB,
   expertPos,
   gateWeights,
   topKOf,
-} from './MoeScene';
+} from './moeData';
 
 /** Captions for the GPT chapter. Only one step's captions exist at a time. */
 function gptAnnotations(temperature: number): Annotation[] {
@@ -69,7 +70,7 @@ function gptAnnotations(temperature: number): Annotation[] {
       id: 'a-emb',
       at: [0, 3.1, 0],
       title: 'Embedding lookup',
-      sub: 'one 4,096-number row per id',
+      sub: 'one 768-number row per id',
       from: 2,
       to: 3,
       tone: 'violet',
@@ -77,7 +78,7 @@ function gptAnnotations(temperature: number): Annotation[] {
     {
       id: 'a-dims',
       at: [4.4, 1.1, 0],
-      title: '8 of 4,096 dimensions',
+      title: '7 of 768 dimensions',
       sub: 'height = value',
       from: 2,
       to: 3,
@@ -157,19 +158,20 @@ function gptAnnotations(temperature: number): Annotation[] {
       id: 'a-expand',
       at: [-1.7, 3.95, 0],
       title: 'Expand 4×',
-      sub: '4,096 → ~16,000',
+      sub: '768 → 3,072',
       from: 6,
       to: 7,
       tone: 'violet',
     },
     {
       id: 'a-gelu',
-      at: [0.9, 1.95, 0],
+      at: [0.9, 1.1, 0],
       title: 'GELU',
       sub: 'the only nonlinearity',
       from: 6,
       to: 7,
       tone: 'amber',
+      place: 'below',
     },
     {
       id: 'a-params',
@@ -274,11 +276,12 @@ function moeAnnotations(topK: 1 | 2 | 3 | 4, loadBalancing: boolean): Annotation
     // 0 · dense
     {
       id: 'm-dense',
-      at: [0, 3.1, 0],
+      at: [0, 3.5, 0],
       title: 'Dense FFN',
       sub: 'every token touches every weight',
       from: 0,
       to: 1,
+      place: 'above',
     },
 
     // 1-2 · router
@@ -356,38 +359,40 @@ function moeAnnotations(topK: 1 | 2 | 3 | 4, loadBalancing: boolean): Annotation
     // 4 · merge
     {
       id: 'm-merge',
-      at: [0, -2.45, 1.6],
+      at: [0, -2.05, 1.6],
       title: 'Σ wᵢ · expertᵢ(x)',
       sub: 'the sum rejoins the residual stream',
       from: 4,
       to: 5,
       tone: 'green',
+      place: 'below',
     },
 
     // 5-6 · economics
     {
       id: 'm-total',
-      at: [-3.9, 4.35, 0],
+      at: [-3.6, 3.85, 0],
       title: 'Total parameters',
-      sub: '46.7B · all held in memory',
+      sub: '134B · every one held in memory',
       from: 5,
       to: 6,
       tone: 'violet',
     },
     {
       id: 'm-active',
-      at: [0, 1.45, 0],
+      at: [0, 1.1, 0],
       title: 'Compute per token',
-      sub: `12.9B · k = ${topK}`,
+      sub: `${activeParamsB(topK)}B · k = ${topK}`,
       from: 5,
       to: 6,
       tone: 'green',
+      place: 'below',
     },
     {
       id: 'm-dense-ref',
-      at: [3.9, 1.0, 0],
-      title: 'Dense reference',
-      sub: '12.9B · 1×',
+      at: [3.6, 2.1, 0],
+      title: 'One dense FFN',
+      sub: `13B · ${topK === 1 ? 'same as k = 1' : `${topK}× at k = ${topK}`}`,
       from: 5,
       to: 6,
       tone: 'muted',
@@ -403,19 +408,28 @@ function moeAnnotations(topK: 1 | 2 | 3 | 4, loadBalancing: boolean): Annotation
       to: 7,
       tone: loadBalancing ? 'cyan' : 'pink',
     },
-    ...histogram.map((v, i) => ({
-      id: `m-hist-${i}`,
-      at: [
-        histX0 + i * HIST_LAYOUT.spacing,
-        HIST_LAYOUT.baseY + (v / maxHist) * HIST_LAYOUT.height + 0.42,
-        0,
-      ] as [number, number, number],
-      title: `E${i + 1}`,
-      sub: `${Math.round(v * 100)}%`,
-      from: 6,
-      to: 7,
-      tone: v > 0.3 ? ('pink' as const) : ('muted' as const),
-    })),
+    // Only the tallest and the shortest bar are captioned. Labelling all eight
+    // made the placement pass run out of room and fling captions far from their
+    // bars; the comparison that actually matters is busiest versus quietest.
+    ...(() => {
+      const hi = histogram.indexOf(Math.max(...histogram));
+      const lo = histogram.indexOf(Math.min(...histogram));
+      const cap = (i: number, tag: string) => ({
+        id: `m-hist-${i}`,
+        at: [
+          histX0 + i * HIST_LAYOUT.spacing,
+          HIST_LAYOUT.baseY + (histogram[i] / maxHist) * HIST_LAYOUT.height + 0.42,
+          0,
+        ] as [number, number, number],
+        title: `E${i + 1} · ${Math.round(histogram[i] * 100)}%`,
+        sub: tag,
+        from: 6,
+        to: 7,
+        tone: (histogram[i] > 0.3 ? 'pink' : 'muted') as 'pink' | 'muted',
+        place: 'above' as const,
+      });
+      return [cap(hi, 'busiest expert'), cap(lo, 'quietest expert')];
+    })(),
 
     // 7 · where it lives
     {

@@ -12,6 +12,12 @@ export interface KeyNumber {
   value: string;
 }
 
+/** A term this step introduces, with a one-line meaning. */
+export interface Term {
+  term: string;
+  meaning: string;
+}
+
 /**
  * One scripted step.
  *
@@ -32,6 +38,8 @@ export interface Step {
   see: string[];
   /** Optional "try this" prompt for the interactive control on this step. */
   tryIt?: string;
+  /** Jargon this step introduces, defined in place so nobody has to leave the page. */
+  terms?: Term[];
   numbers?: KeyNumber[];
   camera: CameraPose;
   /** Component ids emphasised in this step (informational). */

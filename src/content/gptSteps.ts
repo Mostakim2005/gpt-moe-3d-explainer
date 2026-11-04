@@ -3,8 +3,10 @@ import type { ChapterDef } from './types';
 /**
  * GPT chapter — 11 steps from raw text to the sampling loop.
  *
- * Facts are labelled with the model they belong to (GPT-2 small unless stated),
- * because "the" vocabulary size or layer count is not one number across models.
+ * One model is named throughout so the numbers stay mutually consistent:
+ * **GPT-2 small** — 768-wide vectors, 12 heads, 12 blocks, 3,072-wide FFN,
+ * 1,024-token context, 50,257-token vocabulary, 117M parameters. Where a
+ * different model is quoted it is named explicitly.
  */
 export const gptChapter: ChapterDef = {
   id: 'gpt',
@@ -18,6 +20,10 @@ export const gptChapter: ChapterDef = {
       body: 'A GPT model never sees words. It sees integers. The sentence you type is split into tokens, each token becomes an id, and from that point on everything the model does is arithmetic on vectors.',
       why: 'Generation is autoregressive: the whole pipeline runs once per token. Nothing is planned ahead — the model predicts a token, appends it, and reads the longer sentence again.',
       see: ['The six chips are the input sentence', 'Each chip already carries its integer id'],
+      terms: [
+        { term: 'Autoregressive', meaning: 'one token at a time, each fed back in as input' },
+        { term: 'Forward pass', meaning: 'one run of the network, here producing one token' },
+      ],
       numbers: [
         { label: 'Tokens per forward pass', value: '1' },
         { label: 'Then', value: 'append + repeat' },
@@ -30,9 +36,14 @@ export const gptChapter: ChapterDef = {
       id: 'tokenize',
       short: 'Tokenization',
       title: 'Tokenization',
-      body: 'A tokenizer uses a fixed vocabulary learned by byte-pair encoding: start from single characters and repeatedly merge the most frequent pairs. Common words stay whole; rare ones split — "unbelievable" becomes un + believ + able. Each piece maps to an integer id — 50,257 entries for GPT-2, roughly 200,000 for GPT-4-class models.',
+      body: 'A tokenizer uses a fixed vocabulary learned by byte-pair encoding: start from single characters — for GPT-2, single *bytes* — and repeatedly merge the most frequent adjacent pair. Common words stay whole; rare ones split — "unbelievable" becomes un + believ + able. Each piece maps to an integer id: 50,257 entries for GPT-2, roughly 100,000–200,000 for current frontier models.',
       why: 'Subword units keep the vocabulary small while still covering any string — names, code, emoji, other languages — because the fallback is raw bytes, not an unknown-token symbol.',
       see: ['The same six chips, now with their ids', 'The id, not the word, is what the model stores'],
+      terms: [
+        { term: 'Token', meaning: 'a chunk of text — a word, word-piece, or byte' },
+        { term: 'BPE', meaning: 'byte-pair encoding: repeatedly merge the most frequent pair' },
+        { term: 'Vocabulary', meaning: 'the fixed list of every token a model can emit' },
+      ],
       numbers: [
         { label: 'Vocabulary (GPT-2)', value: '50,257 ids' },
         { label: '"The cat sat"', value: '3 tokens' },
@@ -45,11 +56,16 @@ export const gptChapter: ChapterDef = {
       id: 'embed',
       short: 'Embeddings',
       title: 'Embeddings',
-      body: 'Each id selects one row from an embedding matrix with 4,096 numbers per row. That row is the token\'s starting vector. Nothing is computed — it is a lookup — but the numbers were learned so that tokens used in similar ways end up close together.',
+      body: 'Each id selects one row from an embedding matrix with 768 numbers per row (GPT-2 small; 12,288 in GPT-3). That row is the token\'s starting vector. Nothing is computed — it is a lookup — but the numbers were learned so that tokens used in similar ways end up close together.',
       why: 'This is where discrete symbols become geometry. Analogies such as king − man + woman ≈ queen work because meaning is now direction and distance.',
-      see: ['One bar row per token: its vector', 'Only 8 of the 4,096 dimensions are drawn'],
+      see: ['One bar row per token: its vector', 'Only 7 of the 768 dimensions are drawn'],
+      terms: [
+        { term: 'Embedding', meaning: 'a learned lookup table: id → vector' },
+        { term: 'Dimension', meaning: 'one number in the vector; 768 of them here' },
+        { term: 'd_model', meaning: 'the width of the residual stream, 768' },
+      ],
       numbers: [
-        { label: 'Vector width', value: '4,096' },
+        { label: 'Vector width (GPT-2 small)', value: '768' },
         { label: 'Operation', value: 'lookup, no maths' },
       ],
       camera: { p: [0, 2.6, 10.0], t: [0, 1.6, 0] },
@@ -63,6 +79,10 @@ export const gptChapter: ChapterDef = {
       body: 'Attention is order-blind: shuffle the tokens and the maths is identical. So a position signal is added to every token vector before the first block. GPT learns this signal as another embedding table; the original transformer used fixed sine and cosine waves, which is what the ripples below represent.',
       why: '"Dog bites man" and "man bites dog" contain exactly the same tokens. Without position information the model could not tell them apart.',
       see: ['Ripples: the sin/cos fingerprint of each position', 'Added element-wise to the token vectors'],
+      terms: [
+        { term: 'Positional encoding', meaning: 'a per-position signal added so order is visible' },
+        { term: 'Context window', meaning: 'the most tokens the model can attend over at once' },
+      ],
       numbers: [
         { label: 'Context window (GPT-2)', value: '1,024 positions' },
         { label: 'Added to', value: 'every dimension' },
@@ -78,6 +98,11 @@ export const gptChapter: ChapterDef = {
       body: 'Every token forms three vectors: a query (what am I looking for), a key (what do I offer) and a value (what I would hand over). Score is query · key over √d, and softmax turns each row into weights that sum to 1. A token\'s new vector is the weighted average of the values it attended to. GPT also masks the future: the matrix is lower-triangular, so token 2 may read tokens 0–2 and nothing ahead.',
       why: 'Attention is the only place tokens exchange information, so it is how pronouns get resolved and long-range dependencies travel.',
       see: ['Rows are query tokens, columns are key tokens', 'Lower-triangular shape: no peeking ahead', 'Brighter cell = stronger attention weight'],
+      terms: [
+        { term: 'Query / Key / Value', meaning: 'what I seek / what I advertise / what I pass on' },
+        { term: 'Causal mask', meaning: 'zeroing every cell that would look at a future token' },
+        { term: 'Softmax', meaning: 'turns raw scores into weights that sum to 1' },
+      ],
       numbers: [
         { label: 'Score', value: 'Q·Kᵀ / √d' },
         { label: 'Each row', value: 'sums to 1' },
@@ -93,6 +118,10 @@ export const gptChapter: ChapterDef = {
       body: 'One attention pattern cannot express everything at once, so the model runs many heads in parallel — each with its own Q/K/V projections — then concatenates the outputs and projects them back to the model width. GPT-2 small uses 12 heads; large models use 96 or more.',
       why: 'Heads specialise on their own: some track syntax, some copy the previous token, some follow quotes or coreference. Nobody assigns those roles — they emerge from training.',
       see: ['Four heads, one shared input', 'The concatenation bar below gathers their outputs'],
+      terms: [
+        { term: 'Head', meaning: 'one independent attention pattern running in parallel' },
+        { term: 'Concatenate', meaning: 'glue the heads end to end, then project back down' },
+      ],
       numbers: [
         { label: 'Heads shown', value: '4' },
         { label: 'GPT-2 small', value: '12 heads' },
@@ -105,9 +134,13 @@ export const gptChapter: ChapterDef = {
       id: 'ffn',
       short: 'Feed-forward',
       title: 'Feed-forward network',
-      body: 'After attention mixes information between tokens, each token is processed alone by a two-layer network: expand the 4,096-wide vector to about 16,000, apply a nonlinearity (GELU), project back down. Position-wise — no token talks to another here.',
-      why: 'About two-thirds of all parameters live in these matrices, and they act as the model\'s knowledge store. Attention routes information; the FFN transforms it.',
+      body: 'After attention mixes information between tokens, each token is processed alone by a two-layer network: expand the 768-wide vector to 3,072 (4×), apply a nonlinearity (GELU), project back down to 768. Position-wise — no token talks to another here.',
+      why: 'About two-thirds of all parameters live in these matrices, and they act as the model\'s knowledge store. Attention routes information; the FFN transforms it — and in an MoE model this is the layer that gets split into experts.',
       see: ['Wide middle = 4× expansion', 'Narrow ends = model width'],
+      terms: [
+        { term: 'FFN', meaning: 'feed-forward network: two linear layers with a squash between' },
+        { term: 'GELU', meaning: 'the nonlinearity; without it two linear layers collapse into one' },
+      ],
       numbers: [
         { label: 'Expansion', value: '4×' },
         { label: 'Params in FFN', value: '~2/3 of model' },
@@ -123,6 +156,11 @@ export const gptChapter: ChapterDef = {
       body: 'Each sub-layer is wrapped in two safety devices. A residual connection adds the sub-layer output back onto its input, so the original signal always survives. LayerNorm recentres and rescales each token vector so its magnitudes stay sane. Modern GPTs normalise before each sub-layer — pre-norm.',
       why: 'Without the residual stream, gradients vanish long before layer 50. It is the bus every layer reads from and writes a small delta into, which is why layers can be added or removed.',
       see: ['Amber rail: the skip path around the block', 'Cyan cube: the sub-layers being wrapped'],
+      terms: [
+        { term: 'Residual stream', meaning: 'the running vector each layer adds its output to' },
+        { term: 'LayerNorm', meaning: 'rescales each token vector so magnitudes stay sane' },
+        { term: 'Pre-norm', meaning: 'normalise before the sub-layer, not after' },
+      ],
       numbers: [
         { label: 'Sub-layers per block', value: '2 (attn + FFN)' },
         { label: 'Norm placement', value: 'pre-norm' },
@@ -135,12 +173,16 @@ export const gptChapter: ChapterDef = {
       id: 'stack',
       short: 'Stacking blocks',
       title: 'Stacking blocks',
-      body: 'One block is not enough. GPT stacks them: the output of block n becomes the input of block n+1. GPT-2 small has 12 blocks, GPT-3 has 96, recent models run 100 or more. Depth is sequential — block 40 cannot start before block 39 finishes — so it is paid for directly in latency.',
+      body: 'One block is not enough. GPT stacks them: the output of block n becomes the input of block n+1. GPT-2 small has 12 blocks, GPT-3 has 96, and the largest current models run roughly 100–130. Depth is sequential — block 40 cannot start before block 39 finishes — so it is paid for directly in latency.',
       why: 'Each layer refines the same residual stream. Early layers handle local syntax, middle layers build entities and relations, late layers decide what to output.',
-      see: ['The pulse: one token travelling up the stack', '16 blocks drawn; real models use 12–120'],
+      see: ['The pulse: one token travelling up the stack', '16 blocks drawn — GPT-2 small actually has 12'],
+      terms: [
+        { term: 'Block / layer', meaning: 'attention plus FFN plus the two normalisations' },
+        { term: 'Depth', meaning: 'how many blocks are stacked; runs sequentially, so it costs time' },
+      ],
       numbers: [
-        { label: 'Blocks shown', value: '16' },
-        { label: 'GPT-3', value: '96 layers' },
+        { label: 'Blocks drawn', value: '16' },
+        { label: 'GPT-2 small', value: '12 layers' },
       ],
       camera: { p: [5.5, 5.2, 12.6], t: [0, 3.4, -1.0] },
       active: ['tower'],
@@ -150,9 +192,13 @@ export const gptChapter: ChapterDef = {
       id: 'logits',
       short: 'Logits → softmax',
       title: 'Logits → softmax',
-      body: 'The final vector is multiplied by the embedding matrix again — one dot product per vocabulary entry — giving a raw score (logit) for every possible next token. Softmax exponentiates those scores and normalises them into probabilities that sum to 1.',
+      body: 'The final vector is multiplied by the embedding matrix again — one dot product per vocabulary entry — giving a raw score (logit) for every possible next token. Softmax exponentiates those scores and normalises them into probabilities that sum to 1. The six bars are the six most likely candidates, renormalised to show their relative odds; the other 50,251 hold the long tail.',
       why: 'The model never outputs a word, only a distribution over the entire vocabulary. Training is nothing but nudging the true next token\'s probability up.',
-      see: ['Bar height = probability of that next token', 'The percentages are live, not hard-coded'],
+      see: ['Bar height = probability of that next token', 'The percentages are live — drag the temperature slider'],
+      terms: [
+        { term: 'Logit', meaning: 'an unnormalised score, any real number' },
+        { term: 'Softmax', meaning: 'exp then divide by the total, giving probabilities' },
+      ],
       numbers: [
         { label: 'Candidates scored', value: '50,257' },
         { label: 'Output', value: 'probabilities, sum = 1' },
@@ -169,8 +215,13 @@ export const gptChapter: ChapterDef = {
       why: 'Temperature and top-p are pure post-processing on the output distribution — the weights never change. That is how one model can be terse or creative. And because each new token reuses cached keys and values, only the first token pays for the whole prompt.',
       see: ['Drag the temperature slider', 'Watch the bars sharpen or flatten'],
       tryIt: 'At 0.2 the top token is almost always chosen. At 1.8 the tail gets a real chance.',
+      terms: [
+        { term: 'Temperature', meaning: 'divides the logits; low = safe, high = adventurous' },
+        { term: 'Top-p', meaning: 'keep only the smallest set of tokens whose probabilities reach p' },
+        { term: 'KV cache', meaning: 'reused keys and values, so later tokens skip the prompt' },
+      ],
       numbers: [
-        { label: 'Temperature', value: '0.1 – 2.0' },
+        { label: 'Range shown', value: '0.1 – 2.0' },
         { label: 'At T → 0', value: 'greedy argmax' },
       ],
       camera: { p: [0, 3.0, 11.6], t: [0, 2.0, 0] },

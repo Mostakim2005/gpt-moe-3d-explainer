@@ -14,6 +14,46 @@ const ctx = self as unknown as DedicatedWorkerGlobalScope;
 
 const MODEL_ID = 'KittenML/kitten-tts-nano-0.8';
 
+/**
+ * Force single-threaded WASM for the duration of a model load.
+ *
+ * Multi-threaded ONNX Runtime requires `crossOriginIsolated`, which needs COOP
+ * and COEP response headers. This app deliberately does not send them: COEP
+ * would require every cross-origin asset to opt in with CORP, and the model is
+ * fetched from the HuggingFace CDN, so isolation would block the download
+ * outright. Without isolation, ORT warns and falls back to one thread anyway.
+ *
+ * `kitten-tts-js` assigns `numThreads = navigator.hardwareConcurrency` right
+ * before it creates the session, so setting `ort.env.wasm.numThreads` ourselves
+ * has no effect. The only lever at that point is the value it reads.
+ */
+async function withSingleThread<T>(fn: () => Promise<T>): Promise<T> {
+  const nav = navigator as unknown as { hardwareConcurrency: number };
+  const original = nav.hardwareConcurrency;
+  try {
+    Object.defineProperty(nav, 'hardwareConcurrency', {
+      value: 1,
+      configurable: true,
+      writable: true,
+    });
+  } catch {
+    // Older engines may refuse; ORT falls back on its own.
+  }
+  try {
+    return await fn();
+  } finally {
+    try {
+      Object.defineProperty(nav, 'hardwareConcurrency', {
+        value: original,
+        configurable: true,
+        writable: true,
+      });
+    } catch {
+      /* restore is best-effort */
+    }
+  }
+}
+
 ort.env.wasm.numThreads = 1;
 ort.env.wasm.simd = true;
 
@@ -99,7 +139,7 @@ ctx.onmessage = async (event: MessageEvent<Incoming>) => {
     }
     try {
       ctx.postMessage({ type: 'stage', stage: 'downloading' });
-      tts = await KittenTTS.from_pretrained(MODEL_ID, {});
+      tts = await withSingleThread(() => KittenTTS.from_pretrained(MODEL_ID, {}));
       ctx.postMessage({ type: 'stage', stage: 'warming' });
       // Warm the graph so the first spoken sentence is not noticeably slower.
       await tts.generate('Ready.', { voice: 'Bella', speed: 1 });

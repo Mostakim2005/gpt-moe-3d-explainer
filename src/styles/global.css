@@ -487,7 +487,8 @@ button {
 
 .why-label,
 .see-label,
-.try-label {
+.try-label,
+.terms-label {
   display: block;
   font-size: 9.5px;
   letter-spacing: 0.1em;
@@ -506,6 +507,43 @@ button {
 
 .try-label {
   color: var(--amber);
+}
+
+.terms-label {
+  color: var(--green);
+}
+
+/* Glossary for the jargon this step introduces. */
+.terms-block {
+  border: 1px solid rgba(92, 242, 164, 0.22);
+  background: rgba(92, 242, 164, 0.045);
+  border-radius: 9px;
+  padding: 9px 11px;
+}
+
+.terms-list {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.term {
+  display: grid;
+  grid-template-columns: minmax(72px, auto) 1fr;
+  gap: 8px;
+  align-items: baseline;
+  font-size: 12px;
+}
+
+.term dt {
+  color: var(--green);
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.term dd {
+  color: #c8d3e8;
+  line-height: 1.45;
 }
 
 .narration-why p,
