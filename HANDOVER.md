@@ -23,6 +23,29 @@ It is meant to be read *before* touching anything.
 
 Nothing is broken as far as we know. What remains is verification, cleanup, and docs.
 
+### 1.1 Inventory — this is already built, do not rebuild it
+
+Every item below is written and wired up in the working tree. "Verified" means it was
+actually exercised; "written" means it type-checks and is wired but has not been proven
+at runtime.
+
+| # | Feature | Where | Status |
+| --- | --- | --- | --- |
+| 1 | 19 narrated steps (11 GPT + 8 MoE): title, `short`, `body`, `see[]`, `tryIt`, `narrationText`, camera pose, `active[]` | `src/content/*` | verified (text read, poses exercised) |
+| 2 | Step navigation: next/prev/setStep, ←/→, Space play-pause, timeline scrub, 0.5/1/2× speed, step rail, chapter tabs | `src/state/useSceneStore.ts`, `src/ui/{Timeline,StepList,ChapterTabs}.tsx` | verified |
+| 3 | Camera rig: per-step glide, aspect pull-back, hand-off to OrbitControls on drag | `src/three/CameraRig.tsx` | verified |
+| 4 | Caption overlay: projection → de-overlap → leader lines, step-ranged | `src/three/labels/*` | verified (19/19 steps, 0 overlaps) |
+| 5 | Per-chapter annotations, reactive to the sliders | `src/scenes/annotations.ts` | verified (counts match authored set) |
+| 6 | 3D primitives: boxes, chips, vector bars, heatmap, arcs, towers, bar chart, canvas text | `src/three/shared/*` | verified visually |
+| 7 | `GptScene` / `MoeScene` with per-step fade/scale via `usePresence` | `src/scenes/*` | verified visually |
+| 8 | Toggles: X-ray, Labels, Glow (bloom); sliders: temperature, top-k, load balancing | `src/ui/Shell.tsx`, `src/scenes/annotations.ts` | written (toggles not individually exercised) |
+| 9 | TTS: OS voice default + opt-in Kitten 15M model in a worker, voice picker, speed, auto-narrate, progress/error UI | `src/tts/*`, `src/ui/{VoicePanel,NarrationPanel}.tsx` | **written, unverified** |
+| 10 | Responsive shell (desktop narration column / narrow stacked layout) | `src/ui/Shell.tsx`, `src/styles/global.css` | verified at 574–620 px; not at large widths |
+| 11 | Build config for the ONNX worker (aliases, worker format, dep exclusion) | `vite.config.ts` | verified (`tsc -b` clean, dev server runs) |
+
+So: **nothing requested is missing from the code.** The remaining work in §7 is checking,
+cleaning and documenting, not building. Only rewrite something if a check fails.
+
 ---
 
 ## 2. Run it
@@ -296,3 +319,39 @@ batches of 4–5 steps.
 
 **Reminder:** once §7.3 lands, `__snapCam` disappears — then the audit needs a visible
 window (gotcha 1) and a settle wait of ≥ 1.5 s per step instead.
+
+---
+
+## 10. Paste-ready prompt for the next agent
+
+> You are continuing work on a Vite + React 19 + react-three-fiber project at
+> `C:\Users\kazir\Documents\Agentic Harness\GPT-MoE-3D-Explainer` — an interactive 3D
+> explainer for GPT and Mixture of Experts. **Read `HANDOVER.md` before touching
+> anything**; it is the source of truth for state, decisions and gotchas. The feature
+> set is already implemented (§1.1 of that file) — do not rebuild it.
+>
+> Note that `docs/architecture.md` and `README.md` are stale and still describe the
+> previous label system and a 32-block tower; trust the source, not those files.
+>
+> Work in this order:
+> 1. Verify the Kitten TTS voice end to end (`HANDOVER.md` §7.1) and fix what fails.
+> 2. Run `npm run build` and `npm run lint`, and fix the failures rather than
+>    suppressing them.
+> 3. Delete the three `import.meta.env.DEV` debug hooks listed in §7.3.
+> 4. Bring `README.md` and `docs/*.md` up to date (§7.4).
+>
+> A dev server is probably already running on `http://127.0.0.1:5174`; reuse it. Expect
+> the preview tab to be frame-starved when the window is minimised — see §8 gotcha 1
+> for the workaround. Commit at the end; no remote is configured.
+
+---
+
+## 11. What "done" looks like
+
+* Kitten voice downloads (~25 MB, once), speaks, and stops cleanly; system voice also
+  speaks; no console errors in either path.
+* `npm run build` succeeds, `npm run lint` is clean, and the bundle size is noted.
+* No `__snapCam` / `__proj` / `__projInfo` / `__annoDebug` anywhere in `src/`.
+* `README.md` and both `docs/` pages describe what the code actually does.
+* A final visual pass over a handful of steps in a visible window.
+
