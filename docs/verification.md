@@ -1,4 +1,6 @@
-# Verification
+﻿# Verification -- Verification Harness
+
+> **1-Line Summary:** What is checked automatically and how to re-run it.
 
 Every claim in the README is checked by a script in this repo, not by eye. This
 page records what is measured, how to re-run it, and what the numbers were on the
@@ -35,7 +37,7 @@ is what the harness provides.
 reports pairwise intersections and anything outside the stage rect. This is a
 hard pass/fail: overlapping captions are unreadable.
 
-**`occlusion`** cannot be measured directly — you cannot ask a DOM node "what is
+**`occlusion`** cannot be measured directly â€” you cannot ask a DOM node "what is
 behind you". Instead it measures the *ring* of pixels just outside each caption
 box and reports mean luminance and saturation there. High saturation in the ring
 means the caption is sitting on top of colourful geometry, which is the condition
@@ -47,7 +49,7 @@ corner really is the darkest region measured (so the metric isn't reporting a
 constant), the caption's own interior really is brighter than the background (so
 the measurement is reading the thing it claims to read), and it quantifies how
 much luminance the caption actually hides. Without this, a broken measurement
-would silently report "all clear" — which is exactly what an early version did.
+would silently report "all clear" â€” which is exactly what an early version did.
 
 ## Last recorded results
 
@@ -56,13 +58,13 @@ would silently report "all clear" — which is exactly what an early version did
 | `tsc -b` | clean |
 | `oxlint` | 0 warnings, 0 errors (116 rules, 40 files) |
 | `labels` @ 1920 / 1440 / 1280 / 1100 / 980 px | 19/19 steps, **0 overlaps, 0 out-of-bounds** |
-| `contrast` | 0 failures; 47–54 text nodes measured per step |
+| `contrast` | 0 failures; 47â€“54 text nodes measured per step |
 | `occlusion` worst step | saturation 52.3 on `gpt 9` (was 99.9 before caption placement was rewritten) |
 | `sanity` | baseline-is-darkest PASS, caption-paints PASS |
-| `content` | 19/19 steps: captions ≥ 1, terms ≥ 2, body ≥ 192 chars, no `undefined`/`NaN` |
+| `content` | 19/19 steps: captions â‰¥ 1, terms â‰¥ 2, body â‰¥ 192 chars, no `undefined`/`NaN` |
 | `prod` (built bundle on :4173) | all steps render, **no console errors**, neural voice produced 44.3 s of audio |
 | TTS (system voice) | 3 OS voices; utterance queued and text matches the step |
-| TTS (Kitten) | model downloaded, warmed, produced **44–48 s of 24 kHz audio** |
+| TTS (Kitten) | model downloaded, warmed, produced **44â€“48 s of 24 kHz audio** |
 
 ## Two bugs the harness caught that review did not
 
@@ -74,7 +76,7 @@ to 1.000000 at `T = 1`.
 **The Kitten voice worker never started.** The UI reported "Worker crashed" with
 nothing in the console. Isolating the worker showed `jszip`'s `browser` field
 points at a UMD bundle with no ESM default export. The main thread got a Vite
-CJS→ESM shim; the worker's separate module graph did not, so it died at import
+CJSâ†’ESM shim; the worker's separate module graph did not, so it died at import
 time. Fixed with `optimizeDeps.include: ['jszip']`. This had been shipping broken
 because nobody had loaded the page with the neural engine selected.
 
@@ -107,9 +109,10 @@ capture PNGs to `.tools/out/`.
 
 - **Audio content.** The harness proves a 47.8 s buffer was produced at the right
   sample rate and played through a running `AudioContext`. It cannot judge whether
-  the words are intelligible — that needs a human ear.
+  the words are intelligible â€” that needs a human ear.
 - **Visual taste.** Geometry, colour balance and camera composition are checked
   only where they can be reduced to numbers (contrast, saturation, overlap). The
   look itself is a design judgement.
 - **Cross-browser behaviour.** The harness drives Edge with SwiftShader. Safari
   and Firefox are untested.
+

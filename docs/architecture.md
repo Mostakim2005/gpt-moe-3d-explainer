@@ -1,15 +1,17 @@
-# Architecture
+﻿# Architecture -- App Architecture
+
+> **1-Line Summary:** How the 19-step, camera-driven explainer is built.
 
 ## What this is
 
-A single-page 3D explainer that turns two ML ideas — **how GPT works** and **how Mixture of Experts works** — into scripted, camera-driven step sequences. The user does not read a wall of text; they watch a scene animate through 19 steps (11 GPT + 8 MoE), with narration, stats, and live sliders anchored to the right moments.
+A single-page 3D explainer that turns two ML ideas â€” **how GPT works** and **how Mixture of Experts works** â€” into scripted, camera-driven step sequences. The user does not read a wall of text; they watch a scene animate through 19 steps (11 GPT + 8 MoE), with narration, stats, and live sliders anchored to the right moments.
 
 ## Why this stack
 
 | Layer | Choice | Why |
 |---|---|---|
 | Build | Vite + React + TypeScript | Fast HMR, trivial static build, no bundler config beyond the template. Chosen over a single HTML file because step-driven state (chapter, step, x-ray, sliders) is much easier to keep consistent in React than in imperative DOM code. |
-| 3D | `three` + `@react-three/fiber` + `@react-three/drei` | Declarative scene graph that maps cleanly to "component appears at step N, dims at step M". The alternative — hand-rolled Three.js in a vanilla page — forces manual lifecycle management for every mesh. |
+| 3D | `three` + `@react-three/fiber` + `@react-three/drei` | Declarative scene graph that maps cleanly to "component appears at step N, dims at step M". The alternative â€” hand-rolled Three.js in a vanilla page â€” forces manual lifecycle management for every mesh. |
 | Glow | `@react-three/postprocessing` (Bloom, Vignette) | One `EffectComposer` gives the neon look for free; no custom shaders. |
 | State | `zustand` | A single tiny store (chapter, step, toggles, sliders) readable from both the 2D UI and inside `useFrame` loops without re-renders. Redux would be overkill for ~10 fields. |
 | UI motion | `framer-motion` | Narration panel slide on step change. |
@@ -30,25 +32,25 @@ flowchart TB
         ST[(chapter, step, playing,\nxray, labels, temperature,\ntopK, loadBalancing)]
     end
     subgraph Content["Content data"]
-        GPT[gptSteps.ts — 11 steps]
-        MOE[moeSteps.ts — 8 steps + chapters]
-        TYP[types.ts — Step, Term, CameraPose]
-        GD[gptData.ts — tokens, attention, logits]
-        MD[moeData.ts — experts, gate, economics]
+        GPT[gptSteps.ts â€” 11 steps]
+        MOE[moeSteps.ts â€” 8 steps + chapters]
+        TYP[types.ts â€” Step, Term, CameraPose]
+        GD[gptData.ts â€” tokens, attention, logits]
+        MD[moeData.ts â€” experts, gate, economics]
     end
     subgraph CanvasLayer["CanvasRoot"]
         CAM[CameraRig]
-        STAGE[Stage — grid, shadows, dust]
+        STAGE[Stage â€” grid, shadows, dust]
         SCENE["GptScene / MoeScene"]
-        POST[EffectComposer — Bloom + Vignette]
-        LP[LabelProjector → projection.ts]
-        AO[AnnotationOverlay — DOM captions]
+        POST[EffectComposer â€” Bloom + Vignette]
+        LP[LabelProjector â†’ projection.ts]
+        AO[AnnotationOverlay â€” DOM captions]
     end
     subgraph Primitives["3D primitives (shared)"]
         NB[NeonBox]
         TC[TokenChip]
         VB[VectorBar]
-        ARC[Arc — Bézier tubes]
+        ARC[Arc â€” BÃ©zier tubes]
         HM[HeatmapPlane]
         TW[Tower]
         BC[BarChart]
@@ -101,7 +103,7 @@ The path is:
 3. `AnnotationOverlay` reads that map each frame, measures each caption box, and
    places them with a scoring pass: candidates are tried above/below/left/right of
    the anchor, and each is scored by its clearance from *every other anchor on
-   the step* — not just from other captions. This is what stops a caption landing
+   the step* â€” not just from other captions. This is what stops a caption landing
    on top of the geometry it is supposed to be describing.
 4. An optional `place` hint on an annotation biases which side wins when only one
    caption is on screen (the common case), because with nothing to collide with,
@@ -121,13 +123,13 @@ sequenceDiagram
     participant SC as Scene
     participant P as Primitives
 
-    U->>UI: click Step 5 / press →
+    U->>UI: click Step 5 / press â†’
     UI->>S: setStep(5)
-    S-->>CR: new step → new camera pose
+    S-->>CR: new step â†’ new camera pose
     CR->>CR: damp camera.position + controls.target
     S-->>SC: step = 5
     SC->>SC: recompute which components are in range
-    SC->>P: active = step 5 ∈ range?
+    SC->>P: active = step 5 âˆˆ range?
     P->>P: damp opacity/scale to target
     S-->>UI: narration = steps[5]
     UI->>UI: framer-motion slides panel
@@ -135,7 +137,7 @@ sequenceDiagram
 
 ## The core trick: step ranges + damping
 
-Every visual component declares a **visibility window** `[from, to)` in step space. When the current step is inside the window the component is at full opacity; outside it scales to zero / fades. Positions never jump — they **damp** toward their target with `THREE.MathUtils.damp(cur, target, λ, dt)` inside `useFrame`.
+Every visual component declares a **visibility window** `[from, to)` in step space. When the current step is inside the window the component is at full opacity; outside it scales to zero / fades. Positions never jump â€” they **damp** toward their target with `THREE.MathUtils.damp(cur, target, Î», dt)` inside `useFrame`.
 
 That is what makes scrubbing backwards safe: there is no timeline of tweens to desync. The UI is a pure function of `(chapter, step)` plus a few knobs; the 3D scene is a pure function of the same state. Scrub to any step, any direction, and everything re-derives.
 
@@ -145,18 +147,18 @@ That is what makes scrubbing backwards safe: there is no timeline of tweens to d
 
 ## X-ray mode
 
-One global boolean. Materials read it in their `useFrame`: outer shells drop to `opacity ≈ 0.12, depthWrite = false` and gain `<Edges>` outlines, while inner vectors/arcs go to full opacity. That is the "look inside the block" moment — the residual rail, the vectors inside NeonBoxes, the active experts behind dormant ones.
+One global boolean. Materials read it in their `useFrame`: outer shells drop to `opacity â‰ˆ 0.12, depthWrite = false` and gain `<Edges>` outlines, while inner vectors/arcs go to full opacity. That is the "look inside the block" moment â€” the residual rail, the vectors inside NeonBoxes, the active experts behind dormant ones.
 
 ## File map
 
 ```mermaid
 flowchart LR
-    subgraph app["src/App.tsx → Shell"]
+    subgraph app["src/App.tsx â†’ Shell"]
         direction TB
         A[ChapterTabs]
         B[StepList + NarrationPanel]
         C[Timeline + Controls]
-        D[CanvasRoot → CameraRig, Stage, Scene, Post]
+        D[CanvasRoot â†’ CameraRig, Stage, Scene, Post]
     end
     subgraph data["content/"]
         E[types.ts]
@@ -169,8 +171,8 @@ flowchart LR
     subgraph three["three/"]
         I[CameraRig.tsx]
         J[Stage.tsx]
-        K[shared/ — NeonBox, TokenChip,\nVectorBar, Arc, HeatmapPlane,\nTower, BarChart]
-        LB[labels/ — AnnotationOverlay,\nLabelProjector, projection, types]
+        K[shared/ â€” NeonBox, TokenChip,\nVectorBar, Arc, HeatmapPlane,\nTower, BarChart]
+        LB[labels/ â€” AnnotationOverlay,\nLabelProjector, projection, types]
     end
     subgraph scenes["scenes/"]
         L[GptScene.tsx]
@@ -201,7 +203,7 @@ flowchart LR
   inference for the GPT/MoE content. The goal is a correct mental model, not a
   runnable LLM. (The *voice* is a real neural model; the *subject matter* is not.)
 - **Small, countable shapes.** 6 tokens, 4 heads, 8 experts and 16 blocks are
-  drawn. Real sizes are named in the narration — GPT-2 small has 12 heads and 12
+  drawn. Real sizes are named in the narration â€” GPT-2 small has 12 heads and 12
   blocks; the MoE example uses 8 experts so k can be varied by hand. Where a
   drawn number differs from the model being described, the step says so.
 - **One model pinned per chapter.** The GPT chapter stays on GPT-2 small so its
@@ -217,19 +219,19 @@ flowchart LR
 
 `useTts.ts` exposes one `speak(text)` regardless of engine:
 
-- **System voice** — `window.speechSynthesis`. No download, but quality depends
+- **System voice** â€” `window.speechSynthesis`. No download, but quality depends
   on the OS.
-- **Kitten TTS Nano** — a 15M-parameter ONNX model run in `kitten.worker.ts` via
+- **Kitten TTS Nano** â€” a 15M-parameter ONNX model run in `kitten.worker.ts` via
   onnxruntime-web. Two non-obvious details are required to make it work:
 
   1. **`jszip` must be pre-bundled.** Its `browser` field points at a UMD file
-     with no ESM exports. The main thread gets a Vite CJS→ESM shim; the worker's
+     with no ESM exports. The main thread gets a Vite CJSâ†’ESM shim; the worker's
      separate module graph did not, so the worker died instantly with
      *"does not provide an export named 'default'"*. `optimizeDeps.include:
      ['jszip']` in `vite.config.ts` gives the worker the same interop.
   2. **WASM must be single-threaded.** `kitten-tts-js` sets
      `numThreads = navigator.hardwareConcurrency` immediately before creating the
-     session, so setting `ort.env.wasm.numThreads` first has no effect — the
+     session, so setting `ort.env.wasm.numThreads` first has no effect â€” the
      library overwrites it. Multi-threaded WASM also requires
      `crossOriginIsolated`, which needs COOP/COEP headers, and COEP would block
      the HuggingFace model download outright. The worker therefore pins
@@ -245,14 +247,14 @@ flowchart LR
   array (exported from `content/index.ts`, currently assembled in
   `moeSteps.ts`), and add a member to the `Chapter` union in `types.ts`.
 - Add a knob: add a field to `useSceneStore`, a control in `NarrationPanel`, and
-  read it in the scene. Keep it *derived* — read the knob and compute, never
+  read it in the scene. Keep it *derived* â€” read the knob and compute, never
   store a second copy of the result.
 - Add a term: put it in the step's `terms[]`; the narration panel renders it in
   the glossary block automatically.
 
 ## Where things live in the home folder
 
-- **Runtime (npm + Node):** `C:\Program Files\nodejs\` — system-wide, on PATH.
+- **Runtime (npm + Node):** `C:\Program Files\nodejs\` â€” system-wide, on PATH.
   Any app, harness, or script can run `node` / `npm`.
 - **This explainer (source + docs + start/stop):**
   `C:\Users\kazir\Documents\Agentic Harness\GPT-MoE-3D-Explainer\`
@@ -260,3 +262,4 @@ flowchart LR
 To move the project, copy that whole `GPT-MoE-3D-Explainer` folder.
 `node_modules/` is regenerable (`npm install`) and `dist/` is regenerable
 (`npm run build`); neither needs to be copied.
+
