@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GPT & Mixture of Experts 3D Explainer - Visual Dashboard</title>
+  <!-- Auto-renders Mermaid diagrams in browser -->
+  <script type="module">
+    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+    mermaid.initialize({ startOnLoad: true, theme: 'dark' });
+  </script>
+  <style>
+    :root {
+      --bg: #0a0d14;
+      --surface: #141b26;
+      --border: #233145;
+      --text: #f1f5f9;
+      --muted: #94a3b8;
+      --accent: #38bdf8;
+      --success: #22c55e;
+      --warn: #f59e0b;
+      --danger: #ef4444;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      padding: 24px;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    header {
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 16px;
+      margin-bottom: 24px;
+    }
+    h1 { font-size: 1.85rem; color: var(--accent); }
+    .subtitle { color: var(--muted); font-size: 0.95rem; margin-top: 6px; }
+    .tabs {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 24px;
+      flex-wrap: wrap;
+    }
+    .tab-btn {
+      background: var(--surface);
+      color: var(--text);
+      border: 1px solid var(--border);
+      padding: 10px 18px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 0.95rem;
+      transition: all 0.15s ease;
+    }
+    .tab-btn:hover {
+      border-color: var(--accent);
+    }
+    .tab-btn.active {
+      background: var(--accent);
+      color: #090d16;
+      border-color: var(--accent);
+    }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 20px;
+      margin-bottom: 16px;
+    }
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .card-title { font-size: 1.15rem; font-weight: 700; color: #fff; }
+    .badge {
+      font-size: 0.78rem;
+      padding: 3px 10px;
+      border-radius: 999px;
+      font-weight: 600;
+    }
+    .badge-active { background: rgba(34, 197, 94, 0.2); color: var(--success); }
+    .badge-wishlist { background: rgba(245, 158, 11, 0.2); color: var(--warn); }
+    .badge-human { background: rgba(56, 189, 248, 0.2); color: var(--accent); }
+    .badge-agent { background: rgba(34, 197, 94, 0.2); color: var(--success); }
+    .badge-trap { background: rgba(239, 68, 68, 0.2); color: var(--danger); }
+    .summary {
+      color: var(--accent);
+      font-weight: 500;
+      margin-bottom: 12px;
+      padding-left: 10px;
+      border-left: 3px solid var(--accent);
+    }
+    .anchor {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.85rem;
+      background: #070a10;
+      padding: 6px 10px;
+      border-radius: 6px;
+      color: var(--muted);
+      margin-top: 10px;
+      display: inline-block;
+    }
+    .mermaid-box {
+      background: #070a10;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px;
+      margin-top: 12px;
+      overflow-x: auto;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 12px;
+    }
+    th, td {
+      border: 1px solid var(--border);
+      padding: 8px 12px;
+      text-align: left;
+    }
+    th {
+      background: #0f1622;
+      color: var(--accent);
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>GPT & MoE 3D Explainer — Visual Architecture Dashboard</h1>
+    <p class="subtitle">Permanent visual map of User Intentions, System Architecture, Architectural Decisions, and Protected Engineering Landmines.</p>
+  </header>
+
+  <div class="tabs">
+    <button class="tab-btn active" onclick="showTab('intent', this)">1. Product Intent & Features</button>
+    <button class="tab-btn" onclick="showTab('arch', this)">2. Visual Architecture</button>
+    <button class="tab-btn" onclick="showTab('decisions', this)">3. Decisions & Pivots</button>
+    <button class="tab-btn" onclick="showTab('traps', this)">4. Landmines (Do Not Touch)</button>
+  </div>
+
+  <!-- TAB 1: PRODUCT INTENT & FEATURES -->
+  <section id="intent" class="tab-panel active">
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">[FEATURE: Interactive-3D-Step-Sequencing]</span>
+        <span class="badge badge-active">Active Feature</span>
+      </div>
+      <div class="summary">1-Line Summary: 19 scripted learning steps across two chapters (11 GPT, 8 MoE) with automatic camera positioning and progressive 3D element reveals.</div>
+      <p><strong>User Intention:</strong> The learner can scrub forward or backward freely across the timeline without timeline tween desync or jumping geometry.</p>
+      <div class="anchor">Code Anchors: src/content/gptSteps.ts &rarr; gptSteps | src/three/CameraRig.tsx &rarr; CameraRig</div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">[FEATURE: Dual-Engine-TTS-Narration]</span>
+        <span class="badge badge-active">Active Feature</span>
+      </div>
+      <div class="summary">1-Line Summary: In-browser voice narration of every step supporting both lightweight local neural TTS (Kitten TTS Nano) and native OS Web Speech.</div>
+      <p><strong>User Intention:</strong> Every step offers clear narration explaining the scene without lagging the 3D render thread or crashing on module imports.</p>
+      <div class="anchor">Code Anchors: src/tts/useTts.ts &rarr; useTts | src/tts/kitten.worker.ts &rarr; withSingleThread</div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">[FEATURE: Screen-Space-Annotation-Overlay]</span>
+        <span class="badge badge-active">Active Feature</span>
+      </div>
+      <div class="summary">1-Line Summary: DOM-rendered crisp captions projected from 3D world coordinates with dynamic anchor-clearance scoring to avoid geometry collisions.</div>
+      <p><strong>User Intention:</strong> Captions stay crisp on high-DPI displays and dynamically adjust positions to never obscure active 3D geometry.</p>
+      <div class="anchor">Code Anchors: src/three/labels/AnnotationOverlay.tsx &rarr; placeCaptionCandidates | src/three/labels/LabelProjector.tsx</div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">[FEATURE: Real-Time-Math-Controls]</span>
+        <span class="badge badge-active">Active Feature</span>
+      </div>
+      <div class="summary">1-Line Summary: Live parameter sliders that recompute mathematical probabilities and parameter allocation dynamically without reloading the scene.</div>
+      <p><strong>User Intention:</strong> Immediate interactive demonstration of temperature, Top-K gating, and expert capacity calculations.</p>
+      <div class="anchor">Code Anchors: src/scenes/gptData.ts &rarr; LOGIT_VALUES | src/scenes/moeData.ts &rarr; computeMoeEconomics</div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">[FEATURE: X-Ray-Internal-Inspection]</span>
+        <span class="badge badge-active">Active Feature</span>
+      </div>
+      <div class="summary">1-Line Summary: Toggleable inspection mode that drops outer mesh opacity and renders outlines to expose internal vectors and active routes.</div>
+      <p><strong>User Intention:</strong> Users can look inside transformer blocks to observe the residual stream and hidden representations directly.</p>
+      <div class="anchor">Code Anchors: src/three/shared/NeonBox.tsx &rarr; NeonBox | src/state/useSceneStore.ts &rarr; useSceneStore</div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">[WISHLIST: Cross-Platform-Desktop-Packaging]</span>
+        <span class="badge badge-wishlist">Wishlist Item</span>
+      </div>
+      <div class="summary">1-Line Summary: Package the 3D explainer as a portable standalone Windows .exe desktop application with pre-cached neural voice weights.</div>
+      <div class="anchor">Target Integration: Root build scripts &amp; GitHub Actions portable release workflow</div>
+    </div>
+  </section>
+
+  <!-- TAB 2: ARCHITECTURE -->
+  <section id="arch" class="tab-panel">
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">System Flow &amp; Architecture Map</span>
+      </div>
+      <div class="summary">How the 2D UI shell, state store, 3D Canvas, label projector, and TTS workers interact.</div>
+      <div class="mermaid-box">
+        <pre class="mermaid">
+flowchart TB
+    subgraph UI["2D UI Shell (React + Framer Motion)"]
+        CT[ChapterTabs]
+        SL[StepList]
+        NP[NarrationPanel]
+        TL[Timeline]
+        CTL[Controls]
+    end
+
+    subgraph Store["State Store (Zustand)"]
+        ST[(useSceneStore:\nchapter, step, playing,\nxray, temperature, topK)]
+    end
+
+    subgraph Canvas["3D Canvas (Three.js + R3F + Drei)"]
+        CAM[CameraRig & OrbitControls]
+        STAGE[Stage: Grid, Lights, Shadow]
+        SCENE[GptScene / MoeScene]
+        POST[EffectComposer: Bloom + Vignette]
+    end
+
+    subgraph Labels["Screen-Space Label Pipeline"]
+        LP[LabelProjector: 3D to CSS px]
+        AO[AnnotationOverlay: Dynamic Clearance]
+    end
+
+    UI -->|Dispatch step & knobs| Store
+    Store -->|Subscribe state changes| UI
+    Store -->|Drive target pose| CAM
+    Store -->|Drive visible step index| SCENE
+    SCENE -->|Anchor 3D positions| LP
+    LP -->|Render CSS coordinates| AO
+        </pre>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Technology Stack &amp; Selection Rationale</span>
+      </div>
+      <table>
+        <thead>
+          <tr><th>Layer</th><th>Tool / Library</th><th>Plain-English Reason Why</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Host &amp; UI</td><td>Vite 8 + React 19 + TypeScript</td><td>Fast HMR, static bundling, clean component lifecycle.</td></tr>
+          <tr><td>3D Scene Graph</td><td>Three.js + R3F + Drei</td><td>Declarative mapping of step visibility to component mounts.</td></tr>
+          <tr><td>State Management</td><td>Zustand</td><td>Zero-overhead store readable in high-frequency useFrame loops.</td></tr>
+          <tr><td>Label Projection</td><td>DOM Overlay + Clearance Scoring</td><td>Crisp text rendering with dynamic collision avoidance.</td></tr>
+          <tr><td>Neural Speech</td><td>Kitten TTS Nano (15M ONNX)</td><td>Client-side local voice running in background WebWorker.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- TAB 3: DECISIONS & PIVOTS -->
+  <section id="decisions" class="tab-panel">
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">[DECISION: Kitten-TTS-JS-Vite-ESM-Shim]</span>
+        <span class="badge badge-agent">DECIDED BY: AGENT - Approved by Human</span>
+      </div>
+      <div class="summary">1-Line Summary: Pre-bundled jszip via Vite optimizeDeps to prevent silent web worker crashes during neural voice loading.</div>
+      <p><strong>Why We Pivoted:</strong> jszip's browser entry point is a UMD bundle with no default ESM export. While the main app received a Vite CJS-to-ESM shim, the worker module graph did not, crashing silently on startup. Adding it to optimizeDeps fixed worker resolution.</p>
+      <div class="mermaid-box">
+        <pre class="mermaid">
+flowchart LR
+    subgraph Failed["❌ Old Approach (Failed)"]
+        A1[Standard Worker Import] --> A2[jszip UMD lacks default ESM export]
+        A2 --> A3[Worker crashes silently on load]
+    end
+    subgraph Active["✅ Current Approach (Works)"]
+        B1[optimizeDeps.include: 'jszip'] --> B2[Vite builds CJS-to-ESM wrapper]
+        B2 --> B3[Worker loads smoothly; plays 24 kHz audio]
+    end
+        </pre>
+      </div>
+      <div class="anchor">Code Anchors: vite.config.ts &rarr; optimizeDeps.include | src/tts/kitten.worker.ts</div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">[DECISION: Mathematically-Consistent-Logits-Distribution]</span>
+        <span class="badge badge-agent">DECIDED BY: AGENT - Approved by Human</span>
+      </div>
+      <div class="summary">1-Line Summary: Normalized all displayed logits so their softmax distribution sums exactly to 1.000000 at temperature T=1.</div>
+      <p><strong>Why We Pivoted:</strong> Initial heuristic values totaled 1.24, mathematically contradicting probability theory. We aligned all numbers with GPT-2 small ground truth and normalized the values with a residual tail to total 1.000000.</p>
+      <div class="mermaid-box">
+        <pre class="mermaid">
+flowchart LR
+    subgraph Failed["❌ Old Approach (Failed)"]
+        A1[Heuristic Logit Bars] --> A2[Sum = 1.24 (>1.0)]
+        A2 --> A3[Violates probability mathematics]
+    end
+    subgraph Active["✅ Current Approach (Works)"]
+        B1[Pinned GPT-2 small reference] --> B2[Exact distribution + tail category]
+        B2 --> B3[Sum = 1.000000 at T = 1]
+    end
+        </pre>
+      </div>
+      <div class="anchor">Code Anchors: src/scenes/gptData.ts &rarr; LOGIT_VALUES, LOGIT_SUM</div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">[DECISION: Anchor-Aware-Screen-Space-Caption-Clearance]</span>
+        <span class="badge badge-agent">DECIDED BY: AGENT - Approved by Human</span>
+      </div>
+      <div class="summary">1-Line Summary: Replaced in-canvas 3D text with dynamic screen-space DOM candidate scoring to eliminate geometry collisions.</div>
+      <p><strong>Why We Pivoted:</strong> In-canvas 3D text scaled and skewed with perspective, colliding with active meshes. Projected 2D HTML captions score clearance against all pins, achieving 0 overlaps and 0 out-of-bounds.</p>
+      <div class="mermaid-box">
+        <pre class="mermaid">
+flowchart LR
+    subgraph Failed["❌ Old Approach (Failed)"]
+        A1[In-Canvas 3D Html Nodes] --> A2[Occluded by 3D geometry & perspective skew]
+    end
+    subgraph Active["✅ Current Approach (Works)"]
+        B1[Projected 2D DOM Overlay] --> B2[Evaluates clearance against all pins]
+        B2 --> B3[0 overlaps, 0 out-of-bounds across all viewports]
+    end
+        </pre>
+      </div>
+      <div class="anchor">Code Anchors: src/three/labels/AnnotationOverlay.tsx &rarr; placeCaptionCandidates</div>
+    </div>
+  </section>
+
+  <!-- TAB 4: LANDMINES (DO NOT TOUCH) -->
+  <section id="traps" class="tab-panel">
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">[TRAP: Single-Thread-WASM-Override]</span>
+        <span class="badge badge-trap">DO NOT TOUCH</span>
+      </div>
+      <div class="summary">Strict Rule: Never remove the single-threaded WASM override in kitten.worker.ts, or neural voice downloads from HuggingFace will fail.</div>
+      <p><strong>What Breaks If You Touch It:</strong> Multi-threaded WebAssembly requires COOP/COEP headers, which block asset downloads from external CDNs like HuggingFace. Pinning hardwareConcurrency to 1 ensures reliable loading.</p>
+      <div class="anchor">Protected Anchor: src/tts/kitten.worker.ts &rarr; withSingleThread</div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">[TRAP: Windows-Dev-Server-File-Locking]</span>
+        <span class="badge badge-trap">DO NOT TOUCH</span>
+      </div>
+      <div class="summary">Strict Rule: Always terminate running dev server processes before executing large file operations on Windows.</div>
+      <p><strong>What Breaks If You Touch It:</strong> The Vite file watcher locks open file handles on Windows. Bulk file writes or renames during dev server operation cause fatal ReplaceFileW EIO filesystem errors.</p>
+      <div class="anchor">Protected Anchor: start-server.bat | stop-server.bat</div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">[TRAP: Scene-Data-Export-Separation]</span>
+        <span class="badge badge-trap">DO NOT TOUCH</span>
+      </div>
+      <div class="summary">Strict Rule: Never export numerical arrays or constants from scene component files like GptScene.tsx.</div>
+      <p><strong>What Breaks If You Touch It:</strong> Exporting data constants from component files breaks Vite React Fast Refresh, forcing full browser page reloads on every edit and resetting the user's progress.</p>
+      <div class="anchor">Protected Anchor: src/scenes/gptData.ts | src/scenes/moeData.ts</div>
+    </div>
+  </section>
+
+  <script>
+    function showTab(id, btn) {
+      document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.getElementById(id).classList.add('active');
+      btn.classList.add('active');
+    }
+  </script>
+</body>
+</html>

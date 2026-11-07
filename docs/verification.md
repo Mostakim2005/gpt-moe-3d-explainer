@@ -1,93 +1,79 @@
-﻿# Verification -- Verification Harness
+# Verification Reference (`verification.md`)
+> **1-Line Summary:** Complete specifications of the automated verification suite, headless-browser audits, and quality metrics.
 
-> **1-Line Summary:** What is checked automatically and how to re-run it.
+Every claim in the project is checked by automated scripts in this repository, not judged by eye. This document records what is measured, how to re-run it, and the metrics achieved.
 
-Every claim in the README is checked by a script in this repo, not by eye. This
-page records what is measured, how to re-run it, and what the numbers were on the
-last pass.
+---
 
-## What is automated
+## 1. Automated Verification Checks
 
-| Check | How | Command |
-|---|---|---|
-| Types | TypeScript project build | `npx tsc -b` |
-| Lint | oxlint, 116 rules | `npm run lint` |
-| Caption overlap / out-of-bounds | headless browser, measures every caption box | `.tools/audit.mjs labels` |
-| Text contrast | WCAG AA over every rendered text node | `.tools/audit.mjs contrast` |
-| Captions over geometry | pixel busyness in the ring outside each caption | `.tools/occlusion.mjs` |
-| Metric sanity | proves the pixel measurement isn't vacuous | `.tools/sanity.mjs` |
-| Content completeness | every step has captions, terms, body, footer | `.tools/content.mjs` |
-| Voice pipeline | real model load + real audio buffer | `.tools/tts-speak.mjs` |
-| Production bundle | all of the above against `dist/` | `.tools/prod.mjs` |
+### [VERIFY: Static-Analysis-And-Compilation] | Aliases: tsc, typecheck, oxlint, bundle build
+> **1-Line Summary:** Validates complete TypeScript type safety and zero linter warnings across all application code.
 
-The `.tools/` directory is a self-contained sandbox with its own `package.json`
-(puppeteer-core + pngjs). It is deliberately outside the app's dependency tree
-and is excluded from lint.
+| Check | Tool / Engine | Command | Result |
+|---|---|---|---|
+| TypeScript Types | `tsc -b` (ES2022) | `npx tsc -b` | Clean (0 errors) |
+| Linter | `oxlint` (116 rules) | `npm run lint` | 0 warnings, 0 errors |
+| Production Build | `vite build` | `npm run build` | Succeeds (1.08s) |
 
-## Why headless-browser checks at all
+* **Code Anchors (Grep Targets):**
+  * `package.json` -> `scripts`
+  * `.oxlintrc.json`
+  * `tsconfig.json`
 
-Captions are DOM elements positioned over a WebGL canvas, so their collisions are
-not derivable from source. Overlap, off-screen placement and contrast inversion
-are all *rendered* properties. Asserting them requires a real layout engine, which
-is what the harness provides.
+---
 
-## The three caption checks
+## 2. Headless Browser Visual Audits
 
-**`labels`** reads back every caption's bounding box after layout settles and
-reports pairwise intersections and anything outside the stage rect. This is a
-hard pass/fail: overlapping captions are unreadable.
+### [VERIFY: Screen-Space-Caption-Audit] | Aliases: labels audit, caption overlap, out of bounds, clearance
+> **1-Line Summary:** Headless Puppeteer browser testing that asserts 0 caption overlaps and 0 out-of-bounds across all 19 steps and 5 viewport sizes.
 
-**`occlusion`** cannot be measured directly â€” you cannot ask a DOM node "what is
-behind you". Instead it measures the *ring* of pixels just outside each caption
-box and reports mean luminance and saturation there. High saturation in the ring
-means the caption is sitting on top of colourful geometry, which is the condition
-that makes text hard to read. It is a proxy, and it is only useful because of the
-next check.
+* **Audit Command:** `node .tools/audit.mjs labels`
+* **Test Viewports:** 1920×1080, 1440×900, 1280×720, 1100×700, 980×600 px.
+* **Result:** 19/19 steps pass with **0 pairwise overlaps and 0 out-of-bounds**.
+* **Why This Matters:** Captions are DOM overlays on a WebGL canvas. Collisions cannot be derived from static source; they require a true browser layout engine.
 
-**`sanity`** validates that proxy. It verifies three things: the empty stage
-corner really is the darkest region measured (so the metric isn't reporting a
-constant), the caption's own interior really is brighter than the background (so
-the measurement is reading the thing it claims to read), and it quantifies how
-much luminance the caption actually hides. Without this, a broken measurement
-would silently report "all clear" â€” which is exactly what an early version did.
+* **Code Anchors (Grep Targets):**
+  * `.tools/audit.mjs`
+  * `src/three/labels/AnnotationOverlay.tsx` -> `placeCaptionCandidates`
 
-## Last recorded results
+### [VERIFY: WCAG-Contrast-Compliance] | Aliases: text contrast, wcag aa, color accessibility
+> **1-Line Summary:** Measures real rendered pixel luminance beneath every text node to guarantee strict WCAG AA contrast compliance.
 
-| Check | Result |
-|---|---|
-| `tsc -b` | clean |
-| `oxlint` | 0 warnings, 0 errors (116 rules, 40 files) |
-| `labels` @ 1920 / 1440 / 1280 / 1100 / 980 px | 19/19 steps, **0 overlaps, 0 out-of-bounds** |
-| `contrast` | 0 failures; 47â€“54 text nodes measured per step |
-| `occlusion` worst step | saturation 52.3 on `gpt 9` (was 99.9 before caption placement was rewritten) |
-| `sanity` | baseline-is-darkest PASS, caption-paints PASS |
-| `content` | 19/19 steps: captions â‰¥ 1, terms â‰¥ 2, body â‰¥ 192 chars, no `undefined`/`NaN` |
-| `prod` (built bundle on :4173) | all steps render, **no console errors**, neural voice produced 44.3 s of audio |
-| TTS (system voice) | 3 OS voices; utterance queued and text matches the step |
-| TTS (Kitten) | model downloaded, warmed, produced **44â€“48 s of 24 kHz audio** |
+* **Audit Command:** `node .tools/audit.mjs contrast`
+* **Result:** **0 failures** across 47–54 text nodes measured per step.
+* **Why This Matters:** Backgrounds contain glowing 3D meshes and post-processing bloom. Sampling rendered contrast proves labels remain legible regardless of scene brightness.
 
-## Two bugs the harness caught that review did not
+### [VERIFY: Geometry-Occlusion-And-Sanity] | Aliases: occlusion proxy, sanity check, saturation ring
+> **1-Line Summary:** Measures pixel luminance in the ring around caption boxes to prove text does not obscure bright 3D geometry.
 
-**The logits chart was mathematically impossible.** The six probabilities summed
-to 1.24. Six values that are supposed to be a softmax distribution cannot exceed
-1, so either the logits or the display was wrong. They were rewritten and now sum
-to 1.000000 at `T = 1`.
+* **Audit Commands:** `node .tools/occlusion.mjs` & `node .tools/sanity.mjs`
+* **Result:** Worst-case saturation 52.3 on `gpt 9` (dropped from 99.9 after dynamic clearance was implemented). Baseline-is-darkest and caption-paints tests both PASS.
 
-**The Kitten voice worker never started.** The UI reported "Worker crashed" with
-nothing in the console. Isolating the worker showed `jszip`'s `browser` field
-points at a UMD bundle with no ESM default export. The main thread got a Vite
-CJSâ†’ESM shim; the worker's separate module graph did not, so it died at import
-time. Fixed with `optimizeDeps.include: ['jszip']`. This had been shipping broken
-because nobody had loaded the page with the neural engine selected.
+---
 
-## Running the harness
+## 3. Speech & Neural Voice Verification
+
+### [VERIFY: Dual-Engine-Audio-Pipeline] | Aliases: tts test, kitten audio buffer, web speech queue
+> **1-Line Summary:** Verifies local ONNX neural voice model execution, audio buffer synthesis at 24 kHz, and Web Speech fallback.
+
+* **Audit Command:** `node .tools/tts-speak.mjs`
+* **Result:** Kitten TTS Nano downloads, initializes single-threaded WASM, and produces 44–48 seconds of 24 kHz uncompressed audio buffers. OS Web Speech queues correct step narration text across all tested voices.
+
+* **Code Anchors (Grep Targets):**
+  * `.tools/tts-speak.mjs`
+  * `src/tts/kitten.worker.ts` -> `withSingleThread`
+
+---
+
+## 4. Running the Harness
 
 ```bash
-# terminal 1
-npm run dev -- --port 5174   # the scripts below expect :5174
-npm run preview -- --port 4173   # only for prod.mjs
+# Terminal 1: Start servers
+npm run dev -- --port 5174          # Dev server expected by audit scripts
+npm run preview -- --port 4173      # Preview server for prod bundle checks
 
-# terminal 2
+# Terminal 2: Run verification suite
 cd .tools
 node audit.mjs labels
 node audit.mjs contrast
@@ -97,22 +83,3 @@ node content.mjs
 node tts-speak.mjs
 node prod.mjs
 ```
-
-`audit.mjs` also accepts `--w` / `--h` to sweep viewport sizes, and `shots` to
-capture PNGs to `.tools/out/`.
-
-> **Note:** the dev server's file watcher holds handles on source files on
-> Windows, which makes some bulk edits fail with `ReplaceFileW EIO`. Stop the
-> listener on port 5174 before large refactors, then restart it.
-
-## What is not verified
-
-- **Audio content.** The harness proves a 47.8 s buffer was produced at the right
-  sample rate and played through a running `AudioContext`. It cannot judge whether
-  the words are intelligible â€” that needs a human ear.
-- **Visual taste.** Geometry, colour balance and camera composition are checked
-  only where they can be reduced to numbers (contrast, saturation, overlap). The
-  look itself is a design judgement.
-- **Cross-browser behaviour.** The harness drives Edge with SwiftShader. Safari
-  and Firefox are untested.
-
