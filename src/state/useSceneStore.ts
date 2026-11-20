@@ -16,6 +16,7 @@ interface SceneStore {
   temperature: number;
   topK: 1 | 2 | 3 | 4;
   loadBalancing: boolean;
+  cameraResetSeq: number;
 
   setChapter: (c: Chapter) => void;
   setStep: (i: number) => void;
@@ -30,6 +31,7 @@ interface SceneStore {
   setTemperature: (t: number) => void;
   setTopK: (k: 1 | 2 | 3 | 4) => void;
   setLoadBalancing: (v: boolean) => void;
+  resetCamera: () => void;
 }
 
 function stepsOf(chapter: Chapter): Step[] {
@@ -52,6 +54,7 @@ export const useSceneStore = create<SceneStore>((set, get) => ({
   temperature: 0.8,
   topK: 2,
   loadBalancing: true,
+  cameraResetSeq: 0,
 
   setChapter: (chapter) =>
     set({ chapter, step: 0, playing: false, selected: null }),
@@ -73,15 +76,8 @@ export const useSceneStore = create<SceneStore>((set, get) => ({
   setTemperature: (temperature) => set({ temperature }),
   setTopK: (topK) => set({ topK }),
   setLoadBalancing: (loadBalancing) => set({ loadBalancing }),
+  resetCamera: () => set((s) => ({ cameraResetSeq: s.cameraResetSeq + 1 })),
 }));
-
-/** Selector helpers so UI components stay free of index maths. */
-export const selectCurrentStep = (s: SceneStore): Step => {
-  const steps = stepsOf(s.chapter);
-  return steps[Math.max(0, Math.min(steps.length - 1, s.step))];
-};
-
-export const selectStepCount = (s: SceneStore): number => stepCount(s.chapter);
 
 export const selectAtEnd = (s: SceneStore): boolean =>
   s.step >= stepCount(s.chapter) - 1;

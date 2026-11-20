@@ -27,8 +27,14 @@ export function Shell() {
   // Keyboard shortcuts.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
       const target = e.target as HTMLElement | null;
-      if (target && ['INPUT', 'SELECT', 'TEXTAREA'].includes(target.tagName)) return;
+      if (
+        target &&
+        (['INPUT', 'SELECT', 'TEXTAREA'].includes(target.tagName) || target.isContentEditable)
+      ) {
+        return;
+      }
       const s = useSceneStore.getState();
       switch (e.key) {
         case 'ArrowRight':
@@ -40,9 +46,14 @@ export function Shell() {
           s.prev();
           break;
         case ' ':
+          if (target?.tagName === 'BUTTON') return;
           e.preventDefault();
-          if (s.step >= currentChapter.steps.length - 1) s.setStep(0);
-          s.setPlaying(!s.playing);
+          if (s.step >= currentChapter.steps.length - 1) {
+            s.setStep(0);
+            s.setPlaying(true);
+          } else {
+            s.setPlaying(!s.playing);
+          }
           break;
         case 'x':
         case 'X':
@@ -52,12 +63,19 @@ export function Shell() {
         case 'L':
           s.setLabels(!s.labels);
           break;
-        case 'n':
-        case 'N':
-          void useTtsStore.getState().speak(narrationText(getStep(s.chapter, s.step)));
+        case 'r':
+        case 'R':
+          s.resetCamera();
           break;
+        case 'n':
+        case 'N': {
+          const tts = useTtsStore.getState();
+          if (tts.speaking) tts.stop();
+          else void tts.speak(narrationText(getStep(s.chapter, s.step)));
+          break;
+        }
         case 'Escape':
-          useSceneStore.getState().setSelected(null);
+          s.setSelected(null);
           break;
       }
     };
@@ -65,22 +83,19 @@ export function Shell() {
     return () => window.removeEventListener('keydown', onKey);
   }, [currentChapter]);
 
-  // Auto narration: read each step as it becomes active.
+  // Auto narration: read each step as it becomes active, or stop stale manual speech.
   const lastNarrated = useRef<string>('');
-  useEffect(() => {
-    if (!autoNarrate) return;
-    const key = `${chapter}:${step}`;
-    if (lastNarrated.current === key) return;
-    lastNarrated.current = key;
-    void speak(narrationText(currentStep));
-  }, [autoNarrate, chapter, step, currentStep, speak]);
-
   useEffect(() => {
     if (!autoNarrate) {
       lastNarrated.current = '';
       stop();
+      return;
     }
-  }, [autoNarrate, stop]);
+    const key = `${chapter}:${step}`;
+    if (lastNarrated.current === key) return;
+    lastNarrated.current = key;
+    void speak(narrationText(currentStep));
+  }, [autoNarrate, chapter, step, currentStep, speak, stop]);
 
   return (
     <div className="shell">
@@ -117,8 +132,8 @@ export function Shell() {
 
       <footer className="shell-footer">
         <span>
-          Drag to orbit · Scroll to zoom · Click a part to inspect · ← → step · Space play · N
-          narrate · X x-ray · L labels
+          Drag to orbit · Scroll to zoom · ← → step · Space play · N narrate · X x-ray · L labels ·
+          R reset view
         </span>
         <span>
           {atEnd ? 'Last step' : `Step ${step + 1} of ${currentChapter.steps.length}`} · all numbers

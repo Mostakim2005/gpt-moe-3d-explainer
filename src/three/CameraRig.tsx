@@ -42,6 +42,7 @@ export function CameraRig() {
 
   const chapter = useSceneStore((s) => s.chapter);
   const step = useSceneStore((s) => s.step);
+  const cameraResetSeq = useSceneStore((s) => s.cameraResetSeq);
 
   const pose = getStep(chapter, step).camera;
   const reducedMotion = useMemo(
@@ -55,7 +56,7 @@ export function CameraRig() {
 
   useEffect(() => {
     auto.current = true;
-  }, [chapter, step]);
+  }, [chapter, step, cameraResetSeq]);
 
   useEffect(() => {
     const el = gl.domElement;

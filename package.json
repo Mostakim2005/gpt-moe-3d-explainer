@@ -13,7 +13,6 @@
     "@react-three/drei": "^10",
     "@react-three/fiber": "^9",
     "@react-three/postprocessing": "^3",
-    "framer-motion": "^11",
     "kitten-tts-js": "^0.1.2",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",

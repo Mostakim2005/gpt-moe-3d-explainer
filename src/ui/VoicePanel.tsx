@@ -34,6 +34,7 @@ export function VoicePanel({ text }: Props) {
   const kittenVoice = useTtsStore((s) => s.kittenVoice);
   const setKittenVoice = useTtsStore((s) => s.setKittenVoice);
   const error = useTtsStore((s) => s.error);
+  const dismissError = useTtsStore((s) => s.dismissError);
 
   const busy = phase === 'downloading' || phase === 'warming';
 
@@ -79,6 +80,19 @@ export function VoicePanel({ text }: Props) {
         </div>
       )}
 
+      {error && (
+        <div className="voice-error-bar" role="alert">
+          <p className="voice-error">{error}</p>
+          <button
+            className="voice-dismiss"
+            onClick={dismissError}
+            aria-label="Dismiss voice error"
+          >
+            ×
+          </button>
+        </div>
+      )}
+
       {open && (
         <div className="voice-body">
           <div className="voice-field">
@@ -86,12 +100,14 @@ export function VoicePanel({ text }: Props) {
             <div className="seg">
               <button
                 className={engine === 'system' ? 'seg-btn active' : 'seg-btn'}
+                aria-pressed={engine === 'system'}
                 onClick={() => setEngine('system')}
               >
                 System voice
               </button>
               <button
                 className={engine === 'kitten' ? 'seg-btn active' : 'seg-btn'}
+                aria-pressed={engine === 'kitten'}
                 onClick={() => {
                   setEngine('kitten');
                   if (phase === 'idle') void preload();
@@ -153,8 +169,6 @@ export function VoicePanel({ text }: Props) {
               ? 'Kitten TTS Nano: 15M parameters, English only, ~25 MB downloaded once and cached locally. Runs entirely on this device.'
               : 'Uses the voices already installed in your operating system — nothing to download, but the voice differs per machine.'}
           </p>
-
-          {error && <p className="voice-error">{error}</p>}
         </div>
       )}
     </div>

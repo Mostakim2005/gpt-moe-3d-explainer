@@ -1,6 +1,6 @@
-import { AnimatePresence, motion } from 'framer-motion';
 import { useSceneStore } from '../state/useSceneStore';
-import { chapters, narrationText } from '../content';
+import { getChapter, narrationText } from '../content';
+import { TOTAL_PARAMS_B, activeParamsB } from '../scenes/moeData';
 import { VoicePanel } from './VoicePanel';
 
 export function NarrationPanel() {
@@ -13,32 +13,32 @@ export function NarrationPanel() {
   const loadBalancing = useSceneStore((s) => s.loadBalancing);
   const setLoadBalancing = useSceneStore((s) => s.setLoadBalancing);
 
-  const ch = chapters.find((c) => c.id === chapter);
-  const current = ch?.steps[step];
-  if (!ch || !current) return null;
+  const ch = getChapter(chapter);
+  const current = ch.steps[Math.max(0, Math.min(ch.steps.length - 1, step))];
+  if (!current) return null;
 
-  const isGptSampling = chapter === 'gpt' && current.id === 'sampling';
+  const isGptTemp = chapter === 'gpt' && (current.id === 'logits' || current.id === 'sampling');
   const isMoeTopK = chapter === 'moe' && (current.id === 'topk' || current.id === 'experts');
   const isMoeEconomics = chapter === 'moe' && current.id === 'economics';
   const isMoeBalance = chapter === 'moe' && current.id === 'loadbalance';
 
+  const numbers = isMoeEconomics
+    ? [
+        { label: `Active (k = ${topK})`, value: `${activeParamsB(topK)}B / ${TOTAL_PARAMS_B}B` },
+        { label: 'Compute saving', value: `${(TOTAL_PARAMS_B / activeParamsB(topK)).toFixed(1)}× vs dense` },
+      ]
+    : current.numbers;
+
   return (
-    <AnimatePresence mode="wait">
-      <motion.article
-        key={`${chapter}-${step}`}
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: -6 }}
-        transition={{ duration: 0.22 }}
-        className="narration"
-      >
+    <div className="narration-stack">
+      <VoicePanel text={narrationText(current)} />
+
+      <article key={`${chapter}-${step}`} className="narration narration-enter">
         <div className="narration-kicker">
           Step {step + 1} / {ch.steps.length} · {current.short}
         </div>
         <h2>{current.title}</h2>
         <p className="narration-body">{current.body}</p>
-
-        <VoicePanel text={narrationText(current)} />
 
         {current.see.length > 0 && (
           <div className="see-block">
@@ -77,9 +77,9 @@ export function NarrationPanel() {
           </div>
         )}
 
-        {current.numbers && (
+        {numbers && (
           <dl className="stat-row">
-            {current.numbers.map((n) => (
+            {numbers.map((n) => (
               <div key={n.label} className="stat">
                 <dt>{n.label}</dt>
                 <dd>{n.value}</dd>
@@ -88,7 +88,7 @@ export function NarrationPanel() {
           </dl>
         )}
 
-        {isGptSampling && (
+        {isGptTemp && (
           <label className="slider">
             <span>
               Temperature <strong>{temperature.toFixed(2)}</strong>
@@ -105,7 +105,7 @@ export function NarrationPanel() {
         )}
 
         {isMoeTopK && (
-          <label className="slider">
+          <div className="slider" role="group" aria-label="Top-k experts">
             <span>
               Top-k experts <strong>{topK}</strong>
             </span>
@@ -114,17 +114,18 @@ export function NarrationPanel() {
                 <button
                   key={k}
                   className={k === topK ? 'seg-btn active' : 'seg-btn'}
+                  aria-pressed={k === topK}
                   onClick={() => setTopK(k)}
                 >
                   {k}
                 </button>
               ))}
             </div>
-          </label>
+          </div>
         )}
 
         {isMoeEconomics && (
-          <div className="slider">
+          <div className="slider" role="group" aria-label="Compute with top-k experts">
             <span>
               Compute with k = <strong>{topK}</strong>
             </span>
@@ -133,6 +134,7 @@ export function NarrationPanel() {
                 <button
                   key={k}
                   className={k === topK ? 'seg-btn active' : 'seg-btn'}
+                  aria-pressed={k === topK}
                   onClick={() => setTopK(k)}
                 >
                   {k}
@@ -143,17 +145,19 @@ export function NarrationPanel() {
         )}
 
         {isMoeBalance && (
-          <div className="slider">
+          <div className="slider" role="group" aria-label="Load balancing">
             <span>Load balancing</span>
             <div className="seg">
               <button
                 className={!loadBalancing ? 'seg-btn active' : 'seg-btn'}
+                aria-pressed={!loadBalancing}
                 onClick={() => setLoadBalancing(false)}
               >
                 Off
               </button>
               <button
                 className={loadBalancing ? 'seg-btn active' : 'seg-btn'}
+                aria-pressed={loadBalancing}
                 onClick={() => setLoadBalancing(true)}
               >
                 On
@@ -161,7 +165,7 @@ export function NarrationPanel() {
             </div>
           </div>
         )}
-      </motion.article>
-    </AnimatePresence>
+      </article>
+    </div>
   );
 }

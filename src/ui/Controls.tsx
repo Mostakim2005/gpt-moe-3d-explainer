@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { useSceneStore } from '../state/useSceneStore';
 
 export function Controls() {
@@ -7,11 +8,23 @@ export function Controls() {
   const setLabels = useSceneStore((s) => s.setLabels);
   const bloom = useSceneStore((s) => s.bloom);
   const setBloom = useSceneStore((s) => s.setBloom);
+  const resetCamera = useSceneStore((s) => s.resetCamera);
+
+  const [isFullscreen, setIsFullscreen] = useState(
+    () => typeof document !== 'undefined' && Boolean(document.fullscreenElement),
+  );
+
+  useEffect(() => {
+    const onChange = () => setIsFullscreen(Boolean(document.fullscreenElement));
+    document.addEventListener('fullscreenchange', onChange);
+    return () => document.removeEventListener('fullscreenchange', onChange);
+  }, []);
 
   return (
     <div className="controls">
       <button
         className={xray ? 'toggle active' : 'toggle'}
+        aria-pressed={xray}
         onClick={() => setXray(!xray)}
         title="X-ray (X)"
       >
@@ -19,6 +32,7 @@ export function Controls() {
       </button>
       <button
         className={labels ? 'toggle active' : 'toggle'}
+        aria-pressed={labels}
         onClick={() => setLabels(!labels)}
         title="Labels (L)"
       >
@@ -26,6 +40,7 @@ export function Controls() {
       </button>
       <button
         className={bloom ? 'toggle active' : 'toggle'}
+        aria-pressed={bloom}
         onClick={() => setBloom(!bloom)}
         title="Glow"
       >
@@ -33,15 +48,26 @@ export function Controls() {
       </button>
       <button
         className="toggle"
+        onClick={resetCamera}
+        title="Reset camera view (R)"
+        aria-label="Reset camera view"
+      >
+        Reset
+      </button>
+      <button
+        className={isFullscreen ? 'toggle active' : 'toggle'}
+        aria-pressed={isFullscreen}
+        aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
         onClick={() => {
-          if (document.fullscreenElement) void document.exitFullscreen();
-          else void document.documentElement.requestFullscreen();
+          const op = document.fullscreenElement
+            ? document.exitFullscreen()
+            : document.documentElement.requestFullscreen();
+          void op?.catch(() => {});
         }}
-        title="Fullscreen"
+        title={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
       >
         ⤢
       </button>
     </div>
   );
 }
-
