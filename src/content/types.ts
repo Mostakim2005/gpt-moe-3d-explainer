@@ -42,8 +42,6 @@ export interface Step {
   terms?: Term[];
   numbers?: KeyNumber[];
   camera: CameraPose;
-  /** Component ids emphasised in this step (informational). */
-  active: string[];
   /** Milliseconds to hold before autoplay advances. */
   durationMs: number;
 }
@@ -54,6 +52,3 @@ export interface ChapterDef {
   blurb: string;
   steps: Step[];
 }
-
-/** Per-component visibility window. Components render when step ∈ [from, to). */
-export type VisRange = Record<string, { from: number; to: number }>;

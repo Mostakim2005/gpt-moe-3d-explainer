@@ -26,7 +26,6 @@ export const moeChapter: ChapterDef = {
         { label: 'Compute per token', value: '100%' },
       ],
       camera: { p: [0, 2.8, 11.0], t: [0, 1.6, 0] },
-      active: ['dense'],
       durationMs: 6500,
     },
     {
@@ -45,7 +44,6 @@ export const moeChapter: ChapterDef = {
         { label: 'Router cost', value: '< 1% of FFN' },
       ],
       camera: { p: [0, 2.8, 12.0], t: [-0.8, 1.6, 0] },
-      active: ['router'],
       durationMs: 7000,
     },
     {
@@ -65,7 +63,6 @@ export const moeChapter: ChapterDef = {
         { label: 'Mixtral 8x7B', value: 'k = 2' },
       ],
       camera: { p: [0, 2.8, 12.0], t: [-0.8, 1.6, 0] },
-      active: ['router', 'gate'],
       durationMs: 8000,
     },
     {
@@ -84,7 +81,6 @@ export const moeChapter: ChapterDef = {
         { label: 'Active per token', value: 'k of 8' },
       ],
       camera: { p: [1.5, 3.0, 11.6], t: [-1.0, 1.4, 0] },
-      active: ['experts'],
       durationMs: 8000,
     },
     {
@@ -103,7 +99,6 @@ export const moeChapter: ChapterDef = {
         { label: 'Weights from', value: 'the gate' },
       ],
       camera: { p: [2.5, 2.8, 10.8], t: [-0.6, 0.9, 0] },
-      active: ['experts', 'merge'],
       durationMs: 7000,
     },
     {
@@ -123,7 +118,6 @@ export const moeChapter: ChapterDef = {
         { label: 'Active per token', value: '12.9B' },
       ],
       camera: { p: [0, 3.0, 11.2], t: [0, 2.0, 0] },
-      active: ['economics'],
       durationMs: 8000,
     },
     {
@@ -143,7 +137,6 @@ export const moeChapter: ChapterDef = {
         { label: 'Fix', value: 'aux loss + capacity factor' },
       ],
       camera: { p: [0, 2.8, 10.6], t: [0, 1.6, 0] },
-      active: ['balance'],
       durationMs: 9000,
     },
     {
@@ -162,7 +155,6 @@ export const moeChapter: ChapterDef = {
         { label: 'Attention', value: 'dense, unchanged' },
       ],
       camera: { p: [5.0, 4.6, 11.6], t: [0, 2.9, -1.0] },
-      active: ['tower'],
       durationMs: 8500,
     },
   ],

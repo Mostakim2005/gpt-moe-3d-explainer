@@ -19,7 +19,7 @@ export const gptChapter: ChapterDef = {
       title: 'Start with text',
       body: 'A GPT model never sees words. It sees integers. The sentence you type is split into tokens, each token becomes an id, and from that point on everything the model does is arithmetic on vectors.',
       why: 'Generation is autoregressive: the whole pipeline runs once per token. Nothing is planned ahead — the model predicts a token, appends it, and reads the longer sentence again.',
-      see: ['The six chips are the input sentence', 'Each chip already carries its integer id'],
+      see: ['The six chips are the input sentence', 'No integer ids yet — still raw text'],
       terms: [
         { term: 'Autoregressive', meaning: 'one token at a time, each fed back in as input' },
         { term: 'Forward pass', meaning: 'one run of the network, here producing one token' },
@@ -29,14 +29,13 @@ export const gptChapter: ChapterDef = {
         { label: 'Then', value: 'append + repeat' },
       ],
       camera: { p: [0, 3.0, 9.6], t: [0, 2.4, 0] },
-      active: ['sentence'],
       durationMs: 6500,
     },
     {
       id: 'tokenize',
       short: 'Tokenization',
       title: 'Tokenization',
-      body: 'A tokenizer uses a fixed vocabulary learned by byte-pair encoding: start from single characters — for GPT-2, single *bytes* — and repeatedly merge the most frequent adjacent pair. Common words stay whole; rare ones split — "unbelievable" becomes un + believ + able. Each piece maps to an integer id: 50,257 entries for GPT-2, roughly 100,000–200,000 for current frontier models.',
+      body: 'A tokenizer uses a fixed vocabulary learned by byte-pair encoding: start from single characters — for GPT-2, single bytes — and repeatedly merge the most frequent adjacent pair. Common words stay whole; rare ones split — "unbelievable" becomes un + believ + able. Each piece maps to an integer id: 50,257 entries for GPT-2, roughly 100,000–200,000 for current frontier models.',
       why: 'Subword units keep the vocabulary small while still covering any string — names, code, emoji, other languages — because the fallback is raw bytes, not an unknown-token symbol.',
       see: ['The same six chips, now with their ids', 'The id, not the word, is what the model stores'],
       terms: [
@@ -49,7 +48,6 @@ export const gptChapter: ChapterDef = {
         { label: '"The cat sat"', value: '3 tokens' },
       ],
       camera: { p: [0, 3.0, 9.6], t: [0, 2.4, 0] },
-      active: ['tokens'],
       durationMs: 7000,
     },
     {
@@ -69,7 +67,6 @@ export const gptChapter: ChapterDef = {
         { label: 'Operation', value: 'lookup, no maths' },
       ],
       camera: { p: [0, 2.6, 10.0], t: [0, 1.6, 0] },
-      active: ['tokens', 'vectors'],
       durationMs: 7000,
     },
     {
@@ -88,7 +85,6 @@ export const gptChapter: ChapterDef = {
         { label: 'Added to', value: 'every dimension' },
       ],
       camera: { p: [2.8, 3.0, 9.4], t: [0, 1.6, 0] },
-      active: ['tokens', 'vectors', 'positions'],
       durationMs: 7000,
     },
     {
@@ -108,7 +104,6 @@ export const gptChapter: ChapterDef = {
         { label: 'Each row', value: 'sums to 1' },
       ],
       camera: { p: [0, 3.2, 10.6], t: [0, 1.7, 0] },
-      active: ['tokens', 'attention'],
       durationMs: 9500,
     },
     {
@@ -127,7 +122,6 @@ export const gptChapter: ChapterDef = {
         { label: 'GPT-2 small', value: '12 heads' },
       ],
       camera: { p: [0, 2.2, 13.8], t: [0, 1.0, 0] },
-      active: ['heads'],
       durationMs: 8000,
     },
     {
@@ -146,7 +140,6 @@ export const gptChapter: ChapterDef = {
         { label: 'Params in FFN', value: '~2/3 of model' },
       ],
       camera: { p: [0, 3.0, 10.6], t: [0, 2.0, 0] },
-      active: ['ffn'],
       durationMs: 7000,
     },
     {
@@ -155,7 +148,7 @@ export const gptChapter: ChapterDef = {
       title: 'Residual + LayerNorm',
       body: 'Each sub-layer is wrapped in two safety devices. A residual connection adds the sub-layer output back onto its input, so the original signal always survives. LayerNorm recentres and rescales each token vector so its magnitudes stay sane. Modern GPTs normalise before each sub-layer — pre-norm.',
       why: 'Without the residual stream, gradients vanish long before layer 50. It is the bus every layer reads from and writes a small delta into, which is why layers can be added or removed.',
-      see: ['Amber rail: the skip path around the block', 'Cyan cube: the sub-layers being wrapped'],
+      see: ['Green arc: the skip path around the block', 'Cyan cube: the sub-layers being wrapped'],
       terms: [
         { term: 'Residual stream', meaning: 'the running vector each layer adds its output to' },
         { term: 'LayerNorm', meaning: 'rescales each token vector so magnitudes stay sane' },
@@ -166,7 +159,6 @@ export const gptChapter: ChapterDef = {
         { label: 'Norm placement', value: 'pre-norm' },
       ],
       camera: { p: [2.4, 3.4, 9.8], t: [0, 2.2, 0] },
-      active: ['block'],
       durationMs: 7000,
     },
     {
@@ -185,7 +177,6 @@ export const gptChapter: ChapterDef = {
         { label: 'GPT-2 small', value: '12 layers' },
       ],
       camera: { p: [5.5, 5.2, 12.6], t: [0, 3.4, -1.0] },
-      active: ['tower'],
       durationMs: 8500,
     },
     {
@@ -204,7 +195,6 @@ export const gptChapter: ChapterDef = {
         { label: 'Output', value: 'probabilities, sum = 1' },
       ],
       camera: { p: [0, 2.6, 9.8], t: [0, 1.5, 0] },
-      active: ['logits'],
       durationMs: 8000,
     },
     {
@@ -225,7 +215,6 @@ export const gptChapter: ChapterDef = {
         { label: 'At T → 0', value: 'greedy argmax' },
       ],
       camera: { p: [0, 3.0, 11.6], t: [0, 2.0, 0] },
-      active: ['sampling', 'logits'],
       durationMs: 9500,
     },
   ],

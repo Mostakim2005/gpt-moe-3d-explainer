@@ -4,7 +4,11 @@ import type { Annotation } from '../three/labels/types';
 import type { Chapter } from '../content/types';
 import { LOGITS_LAYOUT, LOGIT_VALUES, LOGIT_WORDS, softmax } from './gptData';
 import {
+  ECON_LAYOUT,
   EXPERT_COLORS,
+  EXPERT_PARAMS_B,
+  TOTAL_PARAMS_B,
+  capacityScale,
   HIST_BALANCED,
   HIST_COLLAPSED,
   HIST_LAYOUT,
@@ -380,19 +384,27 @@ function moeAnnotations(topK: 1 | 2 | 3 | 4, loadBalancing: boolean): Annotation
     },
     {
       id: 'm-active',
-      at: [0, 1.1, 0],
+      at: [
+        0,
+        ECON_LAYOUT.baseY + ECON_LAYOUT.fullH * capacityScale(activeParamsB(topK), TOTAL_PARAMS_B) + 0.35,
+        0,
+      ],
       title: 'Compute per token',
       sub: `${activeParamsB(topK)}B · k = ${topK}`,
       from: 5,
       to: 6,
       tone: 'green',
-      place: 'below',
+      place: 'above',
     },
     {
       id: 'm-dense-ref',
-      at: [3.6, 2.1, 0],
+      at: [
+        3.6,
+        ECON_LAYOUT.baseY + ECON_LAYOUT.fullH * capacityScale(EXPERT_PARAMS_B, TOTAL_PARAMS_B) + 0.35,
+        0,
+      ],
       title: 'One dense FFN',
-      sub: `13B · ${topK === 1 ? 'same as k = 1' : `${topK}× at k = ${topK}`}`,
+      sub: `${EXPERT_PARAMS_B}B per expert · ${topK} active = ${topK * EXPERT_PARAMS_B}B FFN`,
       from: 5,
       to: 6,
       tone: 'muted',
@@ -428,7 +440,7 @@ function moeAnnotations(topK: 1 | 2 | 3 | 4, loadBalancing: boolean): Annotation
         tone: (histogram[i] > 0.3 ? 'pink' : 'muted') as 'pink' | 'muted',
         place: 'above' as const,
       });
-      return [cap(hi, 'busiest expert'), cap(lo, 'quietest expert')];
+      return hi === lo ? [cap(hi, 'even load')] : [cap(hi, 'busiest expert'), cap(lo, 'quietest expert')];
     })(),
 
     // 7 · where it lives
