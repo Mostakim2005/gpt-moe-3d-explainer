@@ -4,6 +4,7 @@ import { getChapter, narrationText } from '../content';
 import { LOGIT_VALUES, LOGIT_WORDS, softmax } from '../scenes/gptData';
 import { TOTAL_PARAMS_B, activeParamsB } from '../scenes/moeData';
 import { VoicePanel } from './VoicePanel';
+import { ConceptCheck } from './ConceptCheck';
 
 function sampleToken(temperature: number, topP: number): { word: string; prob: number } {
   const probs = softmax(LOGIT_VALUES, temperature);
@@ -223,6 +224,7 @@ export function NarrationPanel() {
             </div>
           </div>
         )}
+        <ConceptCheck stepKey={`${chapter}:${current.id}`} />
       </article>
     </div>
   );

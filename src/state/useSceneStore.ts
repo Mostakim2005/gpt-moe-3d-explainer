@@ -44,18 +44,43 @@ function stepCount(chapter: Chapter): number {
   return stepsOf(chapter).length;
 }
 
+function parseHash(): Partial<Pick<SceneStore, 'chapter' | 'step' | 'temperature' | 'topP' | 'topK'>> {
+  if (typeof window === 'undefined' || !window.location.hash) return {};
+  const raw = window.location.hash.slice(1);
+  const [path, query = ''] = raw.split('?');
+  const [chRaw, stepRaw] = path.split('/');
+  const out: Partial<Pick<SceneStore, 'chapter' | 'step' | 'temperature' | 'topP' | 'topK'>> = {};
+  if (chRaw === 'gpt' || chRaw === 'moe') {
+    out.chapter = chRaw;
+    const idx = Number.parseInt(stepRaw ?? '0', 10);
+    if (Number.isFinite(idx)) {
+      out.step = Math.max(0, Math.min(stepCount(chRaw) - 1, idx));
+    }
+  }
+  const params = new URLSearchParams(query);
+  const k = Number.parseInt(params.get('k') ?? '', 10);
+  if (k === 1 || k === 2 || k === 3 || k === 4) out.topK = k;
+  const t = Number.parseFloat(params.get('t') ?? '');
+  if (Number.isFinite(t)) out.temperature = Math.max(0.1, Math.min(2, t));
+  const p = Number.parseFloat(params.get('p') ?? '');
+  if (Number.isFinite(p)) out.topP = Math.max(0.1, Math.min(1, p));
+  return out;
+}
+
+const initial = parseHash();
+
 export const useSceneStore = create<SceneStore>((set, get) => ({
-  chapter: 'gpt',
-  step: 0,
+  chapter: initial.chapter ?? 'gpt',
+  step: initial.step ?? 0,
   playing: false,
   speed: 1,
   xray: false,
   labels: true,
   bloom: true,
   selected: null,
-  temperature: 0.8,
-  topP: 0.9,
-  topK: 2,
+  temperature: initial.temperature ?? 0.8,
+  topP: initial.topP ?? 0.9,
+  topK: initial.topK ?? 2,
   loadBalancing: true,
   cameraResetSeq: 0,
 
@@ -82,6 +107,27 @@ export const useSceneStore = create<SceneStore>((set, get) => ({
   setLoadBalancing: (loadBalancing) => set({ loadBalancing }),
   resetCamera: () => set((s) => ({ cameraResetSeq: s.cameraResetSeq + 1 })),
 }));
+
+if (typeof window !== 'undefined') {
+  useSceneStore.subscribe((s) => {
+    const params = new URLSearchParams();
+    if (s.chapter === 'gpt' && s.temperature !== 0.8) params.set('t', s.temperature.toFixed(2));
+    if (s.chapter === 'gpt' && s.topP !== 0.9) params.set('p', s.topP.toFixed(2));
+    if (s.chapter === 'moe' && s.topK !== 2) params.set('k', String(s.topK));
+    const q = params.toString();
+    const nextHash = `#${s.chapter}/${s.step}${q ? `?${q}` : ''}`;
+    if (window.location.hash !== nextHash) {
+      window.history.replaceState(null, '', nextHash);
+    }
+  });
+
+  window.addEventListener('hashchange', () => {
+    const parsed = parseHash();
+    if (Object.keys(parsed).length > 0) {
+      useSceneStore.setState({ ...parsed, playing: false, selected: null });
+    }
+  });
+}
 
 export const selectAtEnd = (s: SceneStore): boolean =>
   s.step >= stepCount(s.chapter) - 1;
