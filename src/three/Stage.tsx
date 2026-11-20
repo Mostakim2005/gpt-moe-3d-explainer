@@ -1,25 +1,30 @@
-import { useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 
 /** Soft radial glow used as a floor so objects feel grounded without shadows. */
 function useGlowTexture() {
-  return useMemo(() => {
+  const texture = useMemo(() => {
     const size = 256;
     const canvas = document.createElement('canvas');
     canvas.width = size;
     canvas.height = size;
-    const ctx = canvas.getContext('2d')!;
-    const g = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
-    g.addColorStop(0, 'rgba(56,225,255,0.30)');
-    g.addColorStop(0.45, 'rgba(80,120,255,0.10)');
-    g.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.fillStyle = g;
-    ctx.fillRect(0, 0, size, size);
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      const g = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+      g.addColorStop(0, 'rgba(56,225,255,0.30)');
+      g.addColorStop(0.45, 'rgba(80,120,255,0.10)');
+      g.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, size, size);
+    }
     const tex = new THREE.CanvasTexture(canvas);
     tex.colorSpace = THREE.SRGBColorSpace;
     return tex;
   }, []);
+
+  useEffect(() => () => texture.dispose(), [texture]);
+  return texture;
 }
 
 /**
@@ -45,6 +50,10 @@ function mulberry32(seed: number) {
 export function Stage() {
   const dust = useRef<THREE.Points>(null);
   const glow = useGlowTexture();
+  const reducedMotion = useMemo(
+    () => typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+    [],
+  );
 
   const geometry = useMemo(() => {
     const rand = mulberry32(0x5eed);
@@ -60,9 +69,11 @@ export function Stage() {
     return geo;
   }, []);
 
+  useEffect(() => () => geometry.dispose(), [geometry]);
+
   useFrame((state, dt) => {
     const d = dust.current;
-    if (!d) return;
+    if (!d || reducedMotion) return;
     d.rotation.y += Math.min(dt, 0.05) * 0.012;
     d.position.y = Math.sin(state.clock.elapsedTime * 0.12) * 0.12;
   });

@@ -4,16 +4,12 @@ import { useEffect, useMemo, useRef } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { useSceneStore } from '../state/useSceneStore';
-import { chapters } from '../content';
+import { getStep } from '../content';
 
 type Pose = { p: [number, number, number]; t: [number, number, number] };
 
 /**
  * Where the camera wants to be for a pose, given the canvas aspect.
- *
- * Writes into caller-supplied vectors rather than module-level scratch objects:
- * a shared mutable temp is one more thing that has to stay in sync with the
- * render loop, and nothing here is hot enough to need the allocation saving.
  */
 function placePose(
   pose: Pose,
@@ -22,9 +18,6 @@ function placePose(
   outLook: THREE.Vector3,
 ): void {
   outLook.set(pose.t[0], pose.t[1], pose.t[2]);
-  // Narrow viewports lose horizontal field of view first, so back the camera
-  // off proportionally instead of cropping the scene. The canvas here is often
-  // taller than it is wide once the narration column is docked.
   const pullBack = THREE.MathUtils.clamp(1.45 / Math.max(0.45, aspect), 1, 2.1);
   outPos
     .set(pose.p[0], pose.p[1], pose.p[2])
@@ -36,8 +29,9 @@ function placePose(
 /**
  * Glides the camera to each step's pose, then hands control back to the user.
  *
- * While gliding, OrbitControls is disabled so damping and user input cannot
- * fight each other; any drag or wheel event cancels the glide immediately.
+ * Uses a capture-phase pointerdown/wheel listener to re-enable OrbitControls
+ * synchronously before OrbitControls' own listener runs, so the user's first
+ * drag during a glide is never swallowed.
  */
 export function CameraRig() {
   const controls = useRef<OrbitControlsImpl>(null);
@@ -49,7 +43,11 @@ export function CameraRig() {
   const chapter = useSceneStore((s) => s.chapter);
   const step = useSceneStore((s) => s.step);
 
-  const pose = chapters.find((c) => c.id === chapter)?.steps[step]?.camera;
+  const pose = getStep(chapter, step).camera;
+  const reducedMotion = useMemo(
+    () => typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+    [],
+  );
 
   // Scratch vectors for the damp targets, allocated once per mount.
   const targetPos = useMemo(() => new THREE.Vector3(), []);
@@ -63,12 +61,13 @@ export function CameraRig() {
     const el = gl.domElement;
     const release = () => {
       auto.current = false;
+      if (controls.current) controls.current.enabled = true;
     };
-    el.addEventListener('pointerdown', release);
-    el.addEventListener('wheel', release, { passive: true });
+    el.addEventListener('pointerdown', release, { capture: true });
+    el.addEventListener('wheel', release, { passive: true, capture: true });
     return () => {
-      el.removeEventListener('pointerdown', release);
-      el.removeEventListener('wheel', release);
+      el.removeEventListener('pointerdown', release, { capture: true });
+      el.removeEventListener('wheel', release, { capture: true });
     };
   }, [gl]);
 
@@ -84,13 +83,18 @@ export function CameraRig() {
       return;
     }
 
+    if (reducedMotion) {
+      // oxlint-disable-next-line react/immutability
+      camera.position.copy(targetPos);
+      c.target.copy(targetLook);
+      auto.current = false;
+      c.enabled = true;
+      c.update();
+      return;
+    }
+
     c.enabled = false;
 
-    // Mutating the camera and the controls' target each frame is how R3F and
-    // OrbitControls are meant to be driven; there is no declarative equivalent
-    // that damps smoothly. React Compiler flags the write because it cannot
-    // prove `camera` is an external object — it is: it lives in the R3F store,
-    // not in React state, and nothing here is a React render-path value.
     const lambda = 4.2;
     // oxlint-disable-next-line react/immutability
     camera.position.x = THREE.MathUtils.damp(camera.position.x, targetPos.x, lambda, d);

@@ -20,3 +20,7 @@ export function setProjected(id: string, x: number, y: number, visible: boolean)
     entry.visible = visible;
   }
 }
+
+export function clearProjected() {
+  projectedLabels.clear();
+}

@@ -12,16 +12,16 @@ interface PresenceState {
 /**
  * Damped 0→1 presence for a component with a step visibility window.
  *
- * Components are never mounted/unmounted on step change — they scale and fade
- * in place, so scrubbing backwards animates exactly like scrubbing forwards.
- * `delay` staggers siblings so a step builds up instead of snapping.
+ * Reads `step` directly from the store inside `useFrame` so stepping never
+ * triggers React re-renders across dozens of 3D primitives.
  */
 export function usePresence(range: [number, number], delay = 0) {
-  const step = useSceneStore((s) => s.step);
-  const inRange = step >= range[0] && step < range[1];
+  const [from, to] = range;
   const state = useRef<PresenceState>({ p: 0, t: 0, on: false });
 
   useFrame((_, dt) => {
+    const step = useSceneStore.getState().step;
+    const inRange = step >= from && step < to;
     const s = state.current;
     const d = Math.min(dt, 0.05);
     if (inRange) {
@@ -39,7 +39,7 @@ export function usePresence(range: [number, number], delay = 0) {
     }
   });
 
-  return { ref: state, inRange };
+  return { ref: state };
 }
 
 /** Dim factor helpers shared by every primitive. */

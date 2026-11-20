@@ -162,7 +162,7 @@ export function MoeScene() {
         })}
       </group>
 
-      {/* ---------- 4-5 · weighted merge ---------- */}
+      {/* ---------- 4 · weighted merge ---------- */}
       <NeonBox
         id="merge"
         position={[0, -1.5, 1.6]}
@@ -188,62 +188,30 @@ export function MoeScene() {
         );
       })}
 
-      {/* ---------- 5-6 · economics ---------- */}
-      <group position={[0, 0, 0]}>
-        {/* Full capacity: every parameter, all of it resident in memory. */}
-        <NeonBox
-          id="econ-total"
-          position={[ECON_LAYOUT.totalX, ECON_LAYOUT.baseY + ECON_LAYOUT.fullH / 2, 0]}
-          size={[ECON_LAYOUT.width, ECON_LAYOUT.fullH, 0.9]}
-          color={C.violet}
-          range={[5, 7]}
-          anchor="bottom"
-        />
-        {/* Compute per token: grows with k. */}
-        <NeonBox
-          id="econ-active"
-          position={[
-            ECON_LAYOUT.activeX,
-            ECON_LAYOUT.baseY + (ECON_LAYOUT.fullH * capacityScale(activeParamsB(topK), TOTAL_PARAMS_B)) / 2,
-            0,
-          ]}
-          size={[
-            ECON_LAYOUT.width,
-            ECON_LAYOUT.fullH * capacityScale(activeParamsB(topK), TOTAL_PARAMS_B),
-            0.9,
-          ]}
-          color={C.green}
-          range={[5, 7]}
-          delay={0.15}
-          pulse={1}
-          anchor="bottom"
-        />
-        {/* Fixed reference: one dense expert, for scale. */}
-        <NeonBox
-          id="econ-dense"
-          position={[
-            ECON_LAYOUT.denseX,
-            ECON_LAYOUT.baseY + (ECON_LAYOUT.fullH * capacityScale(EXPERT_PARAMS_B, TOTAL_PARAMS_B)) / 2,
-            0,
-          ]}
-          size={[
-            ECON_LAYOUT.width,
-            ECON_LAYOUT.fullH * capacityScale(EXPERT_PARAMS_B, TOTAL_PARAMS_B),
-            0.9,
-          ]}
-          color={C.muted}
-          range={[5, 7]}
-          delay={0.3}
-          anchor="bottom"
-        />
-      </group>
+      {/* ---------- 5 · economics ---------- */}
+      <BarChart
+        values={[
+          capacityScale(TOTAL_PARAMS_B, TOTAL_PARAMS_B),
+          capacityScale(activeParamsB(topK), TOTAL_PARAMS_B),
+          capacityScale(EXPERT_PARAMS_B, TOTAL_PARAMS_B),
+        ]}
+        max={1}
+        colors={[C.violet, C.green, C.muted]}
+        range={[5, 6]}
+        active={step === 5}
+        position={[0, ECON_LAYOUT.baseY, 0]}
+        height={ECON_LAYOUT.fullH}
+        spacing={3.6}
+        barWidth={ECON_LAYOUT.width}
+        depth={0.9}
+      />
 
-      {/* ---------- 6-7 · load balancing ---------- */}
+      {/* ---------- 6 · load balancing ---------- */}
       <BarChart
         values={histogram}
         max={maxHist}
         colors={histogram.map((v) => (v > 0.3 ? C.red : C.cyan))}
-        range={[6, 8]}
+        range={[6, 7]}
         active={step === 6}
         position={[0, HIST_LAYOUT.baseY, 0]}
         height={HIST_LAYOUT.height}

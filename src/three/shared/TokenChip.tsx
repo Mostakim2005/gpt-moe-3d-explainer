@@ -1,6 +1,6 @@
-import { useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
-import { RoundedBox } from '@react-three/drei';
+import { Edges, RoundedBox } from '@react-three/drei';
 import * as THREE from 'three';
 import { useSceneStore } from '../../state/useSceneStore';
 import { C } from './constants';
@@ -27,7 +27,13 @@ interface Props {
 
 export const CHIP_W = 1.24;
 export const CHIP_H = 0.66;
-const GAP = 0.2;
+export const CHIP_GAP = 0.2;
+
+/** Shared horizontal centre coordinate for chip `index` in a row of `count`. */
+export function chipX(index: number, count: number): number {
+  const totalW = count * (CHIP_W + CHIP_GAP) - CHIP_GAP;
+  return -totalW / 2 + CHIP_W / 2 + index * (CHIP_W + CHIP_GAP);
+}
 
 /** A row of rounded token chips with their ids. */
 export function TokenRow({
@@ -41,12 +47,12 @@ export function TokenRow({
   const group = useRef<THREE.Group>(null);
   const { ref } = usePresence(range);
 
-  const xray = useSceneStore((s) => s.xray);
   const selected = useSceneStore((s) => s.selected);
   const setSelected = useSceneStore((s) => s.setSelected);
 
-  const totalW = tokens.length * (CHIP_W + GAP) - GAP;
-  const startX = -totalW / 2 + CHIP_W / 2;
+  useEffect(() => () => {
+    document.body.style.cursor = 'auto';
+  }, []);
 
   useFrame((state) => {
     const g = group.current;
@@ -55,17 +61,16 @@ export function TokenRow({
     g.scale.setScalar(Math.max(0.0001, p));
     g.position.y = position[1] + Math.sin(state.clock.elapsedTime * 0.7) * 0.025 * p;
     g.visible = p > 0.01;
-    void xray;
   });
 
   return (
-    <group ref={group} position={position} scale={Math.max(0.0001, 0.0001)}>
+    <group ref={group} position={position} scale={0.0001}>
       {tokens.map((tok, i) => {
         const c = highlight?.(i) ?? C.cyan;
         const key = `tok-${i}`;
         const isSelected = selected === key;
         return (
-          <group key={i} position={[startX + i * (CHIP_W + GAP), 0, 0]}>
+          <group key={i} position={[chipX(i, tokens.length), 0, 0]}>
             <RoundedBox
               args={[CHIP_W, CHIP_H, 0.3]}
               radius={0.07}
@@ -74,8 +79,16 @@ export function TokenRow({
                 e.stopPropagation();
                 setSelected(isSelected ? null : key);
               }}
+              onPointerOver={(e) => {
+                e.stopPropagation();
+                document.body.style.cursor = 'pointer';
+              }}
+              onPointerOut={() => {
+                document.body.style.cursor = 'auto';
+              }}
             >
               <ChipMaterial color={c} active={active} range={range} delay={i * 0.06} />
+              {isSelected && <Edges color="#ffffff" threshold={15} />}
             </RoundedBox>
             <TextSprite
               text={tok.text.trim()}

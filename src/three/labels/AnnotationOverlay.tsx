@@ -44,16 +44,6 @@ function boxPointDistance(box: Box, p: Point): number {
 
 /**
  * Picks a screen position for one caption.
- *
- * Two hard constraints and one soft one:
- *  1. stay inside the canvas (clamped),
- *  2. never overlap a caption already placed,
- *  3. prefer the spot that keeps the most distance between the caption box and
- *     *every other projected anchor* — the anchors are a cheap proxy for where
- *     the geometry is, so this is what stops a caption from covering a tower or
- *     a heatmap. Captions colliding with each other was the easier half of the
- *     problem; a caption on top of the diagram is what actually makes a scene
- *     unreadable.
  */
 function placeOne(
   id: string,
@@ -78,8 +68,6 @@ function placeOne(
     h,
   });
 
-  // The preferred side is tried at every distance before the other sides, so an
-  // explicit hint wins whenever it is geometrically possible.
   const order: Placement[] = [preferred, 'above', 'below', 'right', 'left'];
   const sides = order.filter((s, i) => order.indexOf(s) === i);
 
@@ -123,16 +111,13 @@ function placeOne(
         const box = build(cx, cy);
         if (placed.some((p) => overlaps(box, p))) continue;
 
-        // Clearance from every other anchor on this step.
         let clearance = Infinity;
         for (const a of anchors) {
-          if (Math.abs(a.x - ax) < 0.5 && Math.abs(a.y - ay) < 0.5) continue; // own anchor
+          if (Math.abs(a.x - ax) < 0.5 && Math.abs(a.y - ay) < 0.5) continue;
           clearance = Math.min(clearance, boxPointDistance(box, a));
         }
         if (clearance === Infinity) clearance = 999;
 
-        // Backing off costs a little, so the nearest clear spot wins ties; a
-        // non-preferred side costs a lot.
         const score = clearance - d * 0.12 - (side === preferred ? 0 : 40);
         if (score > bestScore) {
           bestScore = score;
@@ -144,7 +129,6 @@ function placeOne(
 
   if (best) return best;
 
-  // Everything is crowded: slide away from the anchor until a free line appears.
   const startX = clamp(ax - w / 2, PAD, maxX);
   const startY = clamp(ay - h - LEAD, PAD, maxY);
   for (let d = 0; d <= H; d += 6) {
@@ -159,9 +143,8 @@ function placeOne(
 /**
  * DOM layer of floating captions, drawn above the WebGL canvas.
  *
- * Every visible caption is positioned against its projected 3D anchor and then
- * pushed away from its neighbours, so labels can never stack on top of each
- * other regardless of camera angle.
+ * Separates DOM measurement (read pass) from style updates (write pass) to
+ * avoid per-caption forced synchronous reflows, and pauses in background tabs.
  */
 export function AnnotationOverlay({ items }: { items: Annotation[] }) {
   const step = useSceneStore((s) => s.step);
@@ -172,42 +155,42 @@ export function AnnotationOverlay({ items }: { items: Annotation[] }) {
     [items, step],
   );
 
+  const visibleById = useMemo(
+    () => new Map(visible.map((a) => [a.id, a])),
+    [visible],
+  );
+
   const hostRef = useRef<HTMLDivElement>(null);
   const boxRefs = useRef(new Map<string, HTMLDivElement>());
   const lineRefs = useRef(new Map<string, SVGLineElement>());
   const dotRefs = useRef(new Map<string, SVGCircleElement>());
-  // A ref rather than a closure variable: the cleanup runs after render
-  // completes, and reassigning a captured `let` there is exactly the pattern
-  // React's compiler rejects (and the one that bites when an effect re-runs).
   const disposed = useRef(false);
 
   useEffect(() => {
     if (!labelsOn || visible.length === 0) return;
     disposed.current = false;
     let raf = 0;
-    let timer = 0;
-
-    // rAF stops entirely in a background tab. Fall back to a timer so the
-    // captions are already placed when the tab comes back to the foreground.
-    const schedule = () => {
-      if (disposed.current) return;
-      if (document.hidden) timer = window.setTimeout(() => frame(), 120);
-      else raf = requestAnimationFrame(() => frame());
-    };
 
     const frame = () => {
-      schedule();
+      if (disposed.current) return;
+      if (!document.hidden) {
+        raf = requestAnimationFrame(frame);
+      }
+
       const host = hostRef.current;
       if (!host) return;
       const W = host.clientWidth;
       const H = host.clientHeight;
       if (!W || !H) return;
 
+      // Pass 1 (READ): measure all boxes before mutating any DOM styles.
       const entries: Array<{
         id: string;
         el: HTMLDivElement;
         ax: number;
         ay: number;
+        w: number;
+        h: number;
         on: boolean;
       }> = [];
 
@@ -215,24 +198,21 @@ export function AnnotationOverlay({ items }: { items: Annotation[] }) {
         const el = boxRefs.current.get(a.id);
         const proj = projectedLabels.get(a.id);
         if (!el || !proj) continue;
-        // Clamp slightly-off anchors into the canvas rather than dropping the
-        // caption: at narrow aspect ratios the margins are the first to go.
         entries.push({
           id: a.id,
           el,
           ax: clamp(proj.x, PAD, W - PAD),
           ay: clamp(proj.y, PAD, H - PAD),
+          w: el.offsetWidth || 120,
+          h: el.offsetHeight || 34,
           on: proj.visible,
         });
       }
 
-      // Every anchor on this step — including ones whose caption is currently
-      // hidden off-screen — is treated as occupied space.
       const anchors: Point[] = entries.map((e) => ({ x: e.ax, y: e.ay }));
-
-      // Upper captions claim space first, which keeps the result stable.
       entries.sort((p, q) => p.ay - q.ay);
 
+      // Pass 2 (WRITE): compute placement and apply transforms/SVG attributes.
       const placed: Box[] = [];
       for (const e of entries) {
         if (!e.on) {
@@ -244,24 +224,17 @@ export function AnnotationOverlay({ items }: { items: Annotation[] }) {
           continue;
         }
 
-        const w = e.el.offsetWidth || 120;
-        const h = e.el.offsetHeight || 34;
-        const item = visible.find((a) => a.id === e.id);
-        const box = placeOne(e.id, e.ax, e.ay, w, h, placed, anchors, W, H, item?.place ?? 'above');
+        const item = visibleById.get(e.id);
+        const box = placeOne(e.id, e.ax, e.ay, e.w, e.h, placed, anchors, W, H, item?.place ?? 'above');
         placed.push(box);
 
         e.el.style.transform = `translate3d(${box.x.toFixed(1)}px, ${box.y.toFixed(1)}px, 0)`;
         e.el.style.opacity = '1';
 
-        // Leader line from the anchor to the nearest edge of the caption.
-        const midY = box.y + h / 2;
-        const midX = box.x + w / 2;
         const toX =
-          e.ax < box.x ? box.x : e.ax > box.x + w ? box.x + w : clamp(e.ax, box.x, box.x + w);
+          e.ax < box.x ? box.x : e.ax > box.x + e.w ? box.x + e.w : clamp(e.ax, box.x, box.x + e.w);
         const toY =
-          e.ay < box.y ? box.y : e.ay > box.y + h ? box.y + h : clamp(e.ay, box.y, box.y + h);
-        void midX;
-        void midY;
+          e.ay < box.y ? box.y : e.ay > box.y + e.h ? box.y + e.h : clamp(e.ay, box.y, box.y + e.h);
 
         const line = lineRefs.current.get(e.id);
         if (line) {
@@ -280,13 +253,21 @@ export function AnnotationOverlay({ items }: { items: Annotation[] }) {
       }
     };
 
-    schedule();
+    const onVisible = () => {
+      if (!document.hidden && !disposed.current) {
+        cancelAnimationFrame(raf);
+        raf = requestAnimationFrame(frame);
+      }
+    };
+
+    document.addEventListener('visibilitychange', onVisible);
+    raf = requestAnimationFrame(frame);
     return () => {
       disposed.current = true;
       cancelAnimationFrame(raf);
-      window.clearTimeout(timer);
+      document.removeEventListener('visibilitychange', onVisible);
     };
-  }, [visible, labelsOn]);
+  }, [visible, visibleById, labelsOn]);
 
   if (!labelsOn || visible.length === 0) return null;
 

@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { RoundedBox, Edges } from '@react-three/drei';
 import * as THREE from 'three';
@@ -60,6 +60,10 @@ export function NeonBox({
 
   const isSelected = selected === id;
 
+  useEffect(() => () => {
+    document.body.style.cursor = 'auto';
+  }, []);
+
   useFrame((state, dt) => {
     const g = group.current;
     const m = mat.current;
@@ -85,7 +89,7 @@ export function NeonBox({
       10,
       d,
     );
-    const baseOpacity = xray ? 0.2 : active ? ACTIVE_OPACITY : DIM_OPACITY;
+    const baseOpacity = xray ? 0.12 : active ? ACTIVE_OPACITY : DIM_OPACITY;
     m.opacity = THREE.MathUtils.damp(m.opacity, baseOpacity * p, 10, d);
     m.transparent = true;
     m.depthWrite = m.opacity > 0.6 && !xray;

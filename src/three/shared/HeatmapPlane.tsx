@@ -47,6 +47,8 @@ export function HeatmapPlane({
   delay = 0,
   causal = false,
 }: Props) {
+  const group = useRef<THREE.Group>(null);
+  const bgMat = useRef<THREE.MeshStandardMaterial>(null);
   const mesh = useRef<THREE.InstancedMesh>(null);
   const { ref } = usePresence(range, delay);
   const n = matrix.length;
@@ -89,11 +91,21 @@ export function HeatmapPlane({
   }, [cells, dummy]);
 
   useFrame((state) => {
+    const g = group.current;
     const m = mesh.current;
-    if (!m) return;
+    if (!g || !m) return;
     const p = ref.current.p;
-    m.scale.setScalar(Math.max(0.0001, p));
-    m.visible = p > 0.01;
+    const visible = p > 0.01;
+    g.visible = visible;
+    if (!visible) return;
+
+    const s = Math.max(0.0001, p);
+    g.scale.setScalar(s);
+
+    if (bgMat.current) {
+      bgMat.current.opacity = p;
+      bgMat.current.depthWrite = p > 0.6;
+    }
 
     const t = state.clock.elapsedTime;
     const head = sweep ? Math.floor((t * 0.9) % n) : -1;
@@ -119,13 +131,20 @@ export function HeatmapPlane({
     mat.depthWrite = false;
   });
 
-  const bg = (n * step + 0.2);
+  const bg = n * step + 0.2;
 
   return (
-    <group position={position} rotation={[tilt, 0, 0]}>
+    <group ref={group} position={position} rotation={[tilt, 0, 0]} visible={false}>
       <mesh position={[0, 0, -0.035]}>
         <planeGeometry args={[bg + 0.28, bg + 0.28]} />
-        <meshStandardMaterial color="#080f20" roughness={0.9} metalness={0.1} />
+        <meshStandardMaterial
+          ref={bgMat}
+          color="#080f20"
+          roughness={0.9}
+          metalness={0.1}
+          transparent
+          opacity={0}
+        />
       </mesh>
       <instancedMesh
         ref={mesh}

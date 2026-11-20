@@ -46,6 +46,8 @@ export function VectorBarRow({
   barWidth = 0.15,
   live = 0,
 }: Props) {
+  const groupRef = useRef<THREE.Group>(null);
+  const baseMat = useRef<THREE.MeshStandardMaterial>(null);
   const meshA = useRef<THREE.InstancedMesh>(null);
   const meshB = useRef<THREE.InstancedMesh>(null);
   const bars = useRef<Float32Array>(new Float32Array(count));
@@ -76,10 +78,20 @@ export function VectorBarRow({
   const dummy = useMemo(() => new THREE.Object3D(), []);
 
   useFrame((state, dt) => {
+    const g = groupRef.current;
     const a = meshA.current;
     const b = meshB.current;
-    if (!a || !b) return;
+    if (!g || !a || !b) return;
     const p = ref.current.p;
+    const visible = p > 0.01;
+    g.visible = visible;
+    if (!visible) return;
+
+    if (baseMat.current) {
+      baseMat.current.opacity = p;
+      baseMat.current.depthWrite = p > 0.6;
+    }
+
     const d = Math.min(dt, 0.05);
     const hs = bars.current;
     const t = state.clock.elapsedTime;
@@ -98,7 +110,6 @@ export function VectorBarRow({
         mesh.setMatrixAt(slot, dummy.matrix);
       });
       mesh.instanceMatrix.needsUpdate = true;
-      mesh.visible = p > 0.01;
       const mat = mesh.material as THREE.MeshStandardMaterial;
       mat.opacity = (active ? 0.95 : 0.3) * p * (xray ? 0.55 : 1);
       mat.emissiveIntensity = (active ? 0.72 : 0.12) * p;
@@ -107,7 +118,7 @@ export function VectorBarRow({
   });
 
   return (
-    <group position={position}>
+    <group ref={groupRef} position={position} visible={false}>
       <instancedMesh
         ref={meshA}
         args={[undefined, undefined, Math.max(1, groupA.length)]}
@@ -142,7 +153,14 @@ export function VectorBarRow({
       </instancedMesh>
       <mesh position={[0, -0.03, 0]}>
         <boxGeometry args={[count * spacing + 0.24, 0.05, 0.26]} />
-        <meshStandardMaterial color="#16213c" roughness={0.8} metalness={0.15} />
+        <meshStandardMaterial
+          ref={baseMat}
+          color="#16213c"
+          roughness={0.8}
+          metalness={0.15}
+          transparent
+          opacity={0}
+        />
       </mesh>
     </group>
   );

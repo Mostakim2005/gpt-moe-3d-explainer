@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useSceneStore } from '../state/useSceneStore';
-import { TokenRow, CHIP_W } from '../three/shared/TokenChip';
+import { TokenRow, chipX } from '../three/shared/TokenChip';
 import { VectorBarRow } from '../three/shared/VectorBar';
 import { NeonBox } from '../three/shared/NeonBox';
 import { Arc } from '../three/shared/Arc';
@@ -16,11 +16,7 @@ import {
   softmax,
 } from './gptData';
 
-const CHIP_STEP = CHIP_W + 0.2;
-const ROW_W = 6 * CHIP_STEP - 0.2;
-const FIRST_X = -ROW_W / 2 + CHIP_W / 2;
-
-const chipX = (i: number) => FIRST_X + i * CHIP_STEP;
+const tokenX = (i: number) => chipX(i, GPT_TOKENS.length);
 
 export function GptScene() {
   const step = useSceneStore((s) => s.step);
@@ -35,7 +31,7 @@ export function GptScene() {
   return (
     <group>
       {/* ---------- 0 · the sentence ---------- */}
-      <TokenRow tokens={GPT_TOKENS} range={[0, 1]} position={[0, 2.4, 0]} />
+      <TokenRow tokens={GPT_TOKENS} range={[0, 1]} position={[0, 2.4, 0]} showIds={false} />
 
       {/* ---------- 1-3 · tokens + ids ---------- */}
       <group position={[0, 2.4, 0]}>
@@ -55,7 +51,7 @@ export function GptScene() {
             phase={i * 0.9}
             delay={i * 0.05}
             barWidth={0.11}
-            position={[chipX(i), 0, 0]}
+            position={[tokenX(i), 0, 0]}
           />
         ))}
       </group>
@@ -87,12 +83,12 @@ export function GptScene() {
           [3, 4],
           [4, 5],
           [2, 5],
-          [5, 3],
+          [3, 5],
         ].map(([a, b], i) => (
           <Arc
             key={i}
-            from={[chipX(a), -0.35, 0]}
-            to={[chipX(b), -0.35, 0]}
+            from={[tokenX(a), -0.35, 0]}
+            to={[tokenX(b), -0.35, 0]}
             range={[4, 5]}
             color={b === 5 ? C.violet : C.cyan}
             lift={0.55 + Math.abs(b - a) * 0.22}

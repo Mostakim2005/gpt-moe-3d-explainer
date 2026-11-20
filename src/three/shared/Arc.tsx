@@ -1,4 +1,4 @@
-import { useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { C } from './constants';
@@ -45,16 +45,19 @@ export function Arc({
   const pulse = useRef<THREE.Mesh>(null);
   const { ref } = usePresence(range, delay);
 
+  const [fx, fy, fz] = from;
+  const [tx, ty, tz] = to;
+
   const { geometry, curve, indexCount } = useMemo(() => {
     const mid = new THREE.Vector3(
-      (from[0] + to[0]) / 2,
-      Math.max(from[1], to[1]) + lift,
-      (from[2] + to[2]) / 2,
+      (fx + tx) / 2,
+      Math.max(fy, ty) + lift,
+      (fz + tz) / 2,
     );
     const c = new THREE.QuadraticBezierCurve3(
-      new THREE.Vector3(...from),
+      new THREE.Vector3(fx, fy, fz),
       mid,
-      new THREE.Vector3(...to),
+      new THREE.Vector3(tx, ty, tz),
     );
     const geo = new THREE.TubeGeometry(c, 40, radius, 6, false);
     return {
@@ -62,7 +65,9 @@ export function Arc({
       curve: c,
       indexCount: geo.index ? geo.index.count : 0,
     };
-  }, [from, to, radius, lift]);
+  }, [fx, fy, fz, tx, ty, tz, radius, lift]);
+
+  useEffect(() => () => geometry.dispose(), [geometry]);
 
   useFrame((state, dt) => {
     const m = mesh.current;

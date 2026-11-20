@@ -37,6 +37,8 @@ export function BarChart({
   active = true,
   delay = 0,
 }: Props) {
+  const group = useRef<THREE.Group>(null);
+  const baseMat = useRef<THREE.MeshStandardMaterial>(null);
   const heights = useRef<Float32Array>(new Float32Array(values.length));
   const mats = useRef<Array<THREE.MeshStandardMaterial | null>>([]);
   const meshes = useRef<Array<THREE.Mesh | null>>([]);
@@ -47,8 +49,19 @@ export function BarChart({
   const targets = values.map((v) => Math.max(0.04, (v / Math.max(max, 1e-6)) * height));
 
   useFrame((_, dt) => {
+    const g = group.current;
+    if (!g) return;
     const p = ref.current.p;
+    const visible = p > 0.01;
+    g.visible = visible;
+    if (!visible) return;
+
     const d = Math.min(dt, 0.05);
+    if (baseMat.current) {
+      baseMat.current.opacity = p;
+      baseMat.current.depthWrite = p > 0.6;
+    }
+
     for (let i = 0; i < values.length; i++) {
       const m = meshes.current[i];
       if (!m) continue;
@@ -73,7 +86,7 @@ export function BarChart({
   });
 
   return (
-    <group position={position}>
+    <group ref={group} position={position} visible={false}>
       {values.map((_, i) => (
         <mesh
           key={i}
@@ -99,7 +112,14 @@ export function BarChart({
       ))}
       <mesh position={[0, -0.01, 0]}>
         <boxGeometry args={[(values.length - 1) * spacing + barWidth + 0.5, 0.05, depth + 0.16]} />
-        <meshStandardMaterial color="#16213c" roughness={0.85} metalness={0.1} />
+        <meshStandardMaterial
+          ref={baseMat}
+          color="#16213c"
+          roughness={0.85}
+          metalness={0.1}
+          transparent
+          opacity={0}
+        />
       </mesh>
     </group>
   );

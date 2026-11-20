@@ -8,10 +8,9 @@
  * here means editing them refreshes just this module.
  */
 
-export interface Token {
-  text: string;
-  id: number;
-}
+import type { Token } from '../three/shared/TokenChip';
+
+export type { Token };
 
 /** The running example sentence, tokenized the way GPT-2 would. */
 export const GPT_TOKENS: Token[] = [
@@ -59,9 +58,11 @@ export const LOGIT_WORDS = ['the', 'a', 'mat', 'rug', 'floor', 'bed'];
  */
 export const LOGIT_VALUES = [3.35, 2.16, 1.14, 0.85, 0.62, 0.38];
 
-/** Softmax with temperature over illustrative logits. */
+/** Numerically stable softmax with temperature over illustrative logits. */
 export function softmax(logits: number[], temperature: number) {
-  const scaled = logits.map((z) => Math.exp(z / Math.max(0.05, temperature)));
+  const t = Math.max(0.05, temperature);
+  const maxZ = Math.max(...logits);
+  const scaled = logits.map((z) => Math.exp((z - maxZ) / t));
   const sum = scaled.reduce((a, b) => a + b, 0);
   return scaled.map((v) => v / sum);
 }

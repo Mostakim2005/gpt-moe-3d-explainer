@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import * as THREE from 'three';
 
 interface Props {
@@ -31,20 +31,22 @@ export function TextSprite({
   const { texture, aspect } = useMemo(() => {
     const scale = 128;
     const font = `${weight} ${scale}px "Inter", "Segoe UI", system-ui, sans-serif`;
-    const measure = document.createElement('canvas').getContext('2d')!;
-    measure.font = font;
-    const w = Math.max(8, Math.ceil(measure.measureText(text).width) + 16);
+    const measure = document.createElement('canvas').getContext('2d');
+    const measuredW = measure ? ((measure.font = font), measure.measureText(text).width) : text.length * scale * 0.6;
+    const w = Math.max(8, Math.ceil(measuredW) + 16);
     const h = Math.ceil(scale * 1.36);
 
     const canvas = document.createElement('canvas');
     canvas.width = w;
     canvas.height = h;
-    const ctx = canvas.getContext('2d')!;
-    ctx.font = font;
-    ctx.textAlign = align === 'center' ? 'center' : 'left';
-    ctx.textBaseline = 'middle';
-    ctx.fillStyle = color;
-    ctx.fillText(text, align === 'center' ? w / 2 : 8, h / 2);
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      ctx.font = font;
+      ctx.textAlign = align === 'center' ? 'center' : 'left';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = color;
+      ctx.fillText(text, align === 'center' ? w / 2 : 8, h / 2);
+    }
 
     const tex = new THREE.CanvasTexture(canvas);
     tex.colorSpace = THREE.SRGBColorSpace;
@@ -52,6 +54,8 @@ export function TextSprite({
     tex.needsUpdate = true;
     return { texture: tex, aspect: w / h };
   }, [text, color, weight, align]);
+
+  useEffect(() => () => texture.dispose(), [texture]);
 
   const height = size * 1.36;
   const width = height * aspect;
