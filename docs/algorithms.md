@@ -31,7 +31,7 @@ flowchart LR
 ```
 
 * **Code Anchors (Grep Targets):**
-  * `src/content/gptSteps.ts` -> `gptSteps`
+  * `src/content/gptSteps.ts` -> `gptChapter`
   * `src/scenes/GptScene.tsx` -> `GptScene`
 
 ---
@@ -51,8 +51,8 @@ flowchart LR
 Common words stay whole ("The" → 464); rare words split ("unbelievable" → un·believ·able). The model only ever sees IDs — a 50,257-entry lookup table, not language. The fallback unit is a raw **byte**, so any string is representable without an "unknown token".
 
 * **Code Anchors (Grep Targets):**
-  * `src/scenes/gptData.ts` -> `TOKENS`
-  * `src/three/shared/TokenChip.tsx` -> `TokenChip`
+  * `src/scenes/gptData.ts` -> `GPT_TOKENS`
+  * `src/three/shared/TokenChip.tsx` -> `TokenRow`
 
 ---
 
@@ -76,7 +76,7 @@ flowchart LR
 The visualization's heatmap is exactly the `W` matrix: each row is one token's distribution over every other token. The arcs are its top entries. Cells above the diagonal are masked flat — that region is where "the future" would have been, drawn dark so causality is visible.
 
 * **Code Anchors (Grep Targets):**
-  * `src/scenes/gptData.ts` -> `ATTENTION_WEIGHTS`
+  * `src/scenes/gptData.ts` -> `ATTENTION`
   * `src/three/shared/HeatmapPlane.tsx` -> `HeatmapPlane`
   * `src/three/shared/Arc.tsx` -> `Arc`
 
@@ -86,9 +86,9 @@ The visualization's heatmap is exactly the `W` matrix: each row is one token's d
 ```mermaid
 flowchart LR
     X --> H1[head 1 — syntax]
-    X --> H2[head 2 — reference]
-    X --> H3[head 3 — punctuation]
-    X --> H4[head 4 — semantics]
+    X --> H2[head 2 — previous token]
+    X --> H3[head 3 — reference]
+    X --> H4[head 4 — punctuation]
     H1 & H2 & H3 & H4 --> CAT[concatenate + project]
     CAT --> X2[next vector]
 ```
@@ -96,7 +96,7 @@ flowchart LR
 Different heads specialise during training (emergent, not hand-designed). The visualization shows 4 heads of 64 dimensions; GPT-2 small runs 12 heads, and modern frontier models use 96+.
 
 * **Code Anchors (Grep Targets):**
-  * `src/scenes/GptScene.tsx` -> `MultiHead`
+  * `src/scenes/GptScene.tsx` -> `GptScene`
 
 ---
 
@@ -107,13 +107,13 @@ Different heads specialise during training (emergent, not hand-designed). The vi
 
 ```mermaid
 flowchart LR
-    X --> UP[expand 4×\nu = W<sub>up</sub>x\n768 → 3,072]
+    X --> LN[Pre-LayerNorm\nrecentre + rescale]
+    LN --> UP[expand 4×\nu = W<sub>up</sub>x\n768 → 3,072]
     UP --> ACT[nonlinearity\nGELU]
     ACT --> DOWN[project back down\ny = W<sub>down</sub>u\n3,072 → 768]
     X --> ADD[residual\nx + y]
     DOWN --> ADD
-    ADD --> LN[LayerNorm\nrecentre + rescale]
-    LN --> NEXT[next block input]
+    ADD --> NEXT[next block input]
 ```
 
 Roughly two-thirds of a transformer's parameters live in the FFN, and because it is position-wise it is the natural place to split into experts. The residual highway lets the original signal skip every sub-layer unchanged — that is what makes 100+ layers trainable.
@@ -143,7 +143,7 @@ Temperature `T` is pure post-processing: `T → 0` sharpens the distribution tow
 The chart draws **six bars, renormalised to sum to 1**, not the full vocabulary. The other 50,251 tokens hold a long tail described in the narration.
 
 * **Code Anchors (Grep Targets):**
-  * `src/scenes/gptData.ts` -> `LOGIT_VALUES`, `LOGIT_SUM`
+  * `src/scenes/gptData.ts` -> `LOGIT_VALUES`, `softmax`
   * `src/three/shared/BarChart.tsx` -> `BarChart`
 
 ---
@@ -169,7 +169,7 @@ flowchart LR
 The router is one matrix multiply — a fraction of an FFN's cost. Only the top-k experts run; the other (8−k) experts' parameters are never touched for this token. The retained weights are renormalised so they sum to 1 before the merge.
 
 * **Code Anchors (Grep Targets):**
-  * `src/scenes/moeData.ts` -> `ROUTER_WEIGHTS`, `EXPERT_COUNT`
+  * `src/scenes/moeData.ts` -> `ROUTER_SCORES`, `EXPERT_COUNT`
   * `src/scenes/MoeScene.tsx` -> `MoeScene`
 
 ### [SUBSYSTEM: MoE-Parametric-Economics] | Aliases: moe economics, active parameters, flop savings
@@ -198,7 +198,7 @@ The worked example is a **134B-parameter / 8-expert** network with 30B shared pa
 Reference models: Mixtral 8×7B (46.7B total, ~12.9B active with k = 2) and DeepSeek-V3 (671B total, 37B active).
 
 * **Code Anchors (Grep Targets):**
-  * `src/scenes/moeData.ts` -> `computeMoeEconomics`
+  * `src/scenes/moeData.ts` -> `activeParamsB`
 
 ### [SUBSYSTEM: Expert-Load-Balancing] | Aliases: aux loss, auxiliary loss, router collapse, capacity factor
 > **1-Line Summary:** Applies auxiliary routing loss during training to distribute tokens evenly across experts and prevent collapse.
@@ -215,5 +215,5 @@ flowchart LR
 The visualization animates both states: one expert at 62% with load balancing off; roughly even spread with it on. A capacity factor caps how many tokens each expert will take, preventing buffer overflow during parallel dispatch.
 
 * **Code Anchors (Grep Targets):**
-  * `src/scenes/moeData.ts` -> `LOAD_BALANCED_DIST`, `COLLAPSED_DIST`
+  * `src/scenes/moeData.ts` -> `HIST_BALANCED`, `HIST_COLLAPSED`
   * `src/scenes/MoeScene.tsx` -> `MoeScene`

@@ -9,10 +9,19 @@
  * Everything writes into .tools/out/.
  */
 import puppeteer from 'puppeteer-core';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
-const EDGE = 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe';
+const BROWSER_CANDIDATES = [
+  process.env.BROWSER_PATH,
+  'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
+  'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+  '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+  '/usr/bin/chromium',
+  '/usr/bin/chromium-browser',
+  '/usr/bin/google-chrome',
+].filter(Boolean);
+const EDGE = BROWSER_CANDIDATES.find((p) => existsSync(p)) || BROWSER_CANDIDATES[0];
 const BASE = process.env.APP_URL || 'http://localhost:5174/';
 const OUT = fileURLToPath(new URL('./out/', import.meta.url)).replace(/\\$/, '');
 mkdirSync(OUT, { recursive: true });
@@ -197,7 +206,9 @@ async function contrast(browser) {
   await settle(page, 1800);
 
   const results = [];
-  for (let i = 0; i < 11; i++) {
+  for (const [chapter, count] of Object.entries(STEP_COUNTS)) {
+    await goChapter(page, chapter);
+    for (let i = 0; i < count; i++) {
     await goStep(page, i);
     await settle(page, 700);
     const r = await page.evaluate(() => {
@@ -238,7 +249,7 @@ async function contrast(browser) {
         if (rect.width < 2 || rect.height < 2) continue;
         const st = getComputedStyle(el);
         if (st.visibility === 'hidden' || st.display === 'none' || Number(st.opacity) < 0.2) continue;
-        if (el.closest('.anno-layer') || el.closest('canvas')) continue;
+        if (el.closest('canvas')) continue;
         const fg = parse(st.color);
         if (!fg) continue;
         const eff = { r: fg.r * fg.a + 7 * (1 - fg.a), g: fg.g * fg.a + 11 * (1 - fg.a), b: fg.b * fg.a + 22 * (1 - fg.a) };
@@ -261,8 +272,9 @@ async function contrast(browser) {
       }
       return { issues: out, measured: measuredGlobal };
     });
-    if (r.issues.length) results.push({ step: i, issues: r.issues });
-    process.stdout.write(`gpt step ${i}: measured ${r.measured} text nodes, ${r.issues.length} below AA\n`);
+    if (r.issues.length) results.push({ chapter, step: i, issues: r.issues });
+    process.stdout.write(`${chapter} step ${i}: measured ${r.measured} text nodes, ${r.issues.length} below AA\n`);
+    }
   }
   writeFileSync(`${OUT}/contrast.json`, JSON.stringify(results, null, 2));
   if (!results.length) console.log('PASS: no contrast failures in the UI layer');

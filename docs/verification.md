@@ -35,10 +35,10 @@ Every claim in the project is checked by automated scripts in this repository, n
 
 * **Code Anchors (Grep Targets):**
   * `.tools/audit.mjs`
-  * `src/three/labels/AnnotationOverlay.tsx` -> `placeCaptionCandidates`
+  * `src/three/labels/AnnotationOverlay.tsx` -> `placeOne`
 
 ### [VERIFY: WCAG-Contrast-Compliance] | Aliases: text contrast, wcag aa, color accessibility
-> **1-Line Summary:** Measures real rendered pixel luminance beneath every text node to guarantee strict WCAG AA contrast compliance.
+> **1-Line Summary:** Computes WCAG AA contrast ratios over computed foreground/background styles for UI and caption text nodes across both chapters.
 
 * **Audit Command:** `node .tools/audit.mjs contrast`
 * **Result:** **0 failures** across 47–54 text nodes measured per step.

@@ -3,7 +3,7 @@
 
 ## 1. Core Vision & User Experience Intent
 * **What This App Does (Plain English):** A dark-themed, camera-driven interactive 3D web application that teaches how transformer language models work and how Mixture of Experts (MoE) scales them. It turns complex ML concepts into 19 scripted, narrated, and visually interactive steps.
-* **How It Must Feel to Use:** Fast, cinematic (#0a0d14 dark stage), and smooth at 60 FPS. Camera glides smoothly between viewing angles without disorienting the user. Captions remain crisp DOM text with zero collisions or out-of-bounds across all screen sizes (1920px down to 980px). Audio narration starts instantly with synced glossary terms, and live sliders update mathematical charts instantaneously.
+* **How It Must Feel to Use:** Fast, cinematic (#070b16 dark stage), and smooth at 60 FPS. Camera glides smoothly between viewing angles without disorienting the user. Captions remain crisp DOM text with zero collisions or out-of-bounds across all screen sizes (1920px down to 980px). Audio narration starts instantly with synced glossary terms, and live sliders update mathematical charts instantaneously.
 
 ---
 
@@ -12,10 +12,10 @@
 ### [FEATURE: Interactive-3D-Step-Sequencing] | Aliases: step list, timeline, camera glide, 3d scenes
 > **1-Line Summary:** 19 scripted learning steps across two chapters (11 GPT, 8 MoE) with automatic camera positioning and progressive 3D element reveals.
 * **User Intention (Non-Negotiable):** The learner must be able to step forward/backward or scrub freely across the timeline without animation desynchronization or jumping geometry.
-* **Visual / UI Behavior:** Top chapter tabs switch between "How GPT Works" and "Mixture of Experts". Bottom timeline and arrow keys navigate steps. The camera smoothly damps to preset viewing angles (`position`, `target`, `fov`) for each step, and orbital control unlocks when resting.
+* **Visual / UI Behavior:** Top chapter tabs switch between "How GPT Works" and "Mixture of Experts". Bottom timeline and arrow keys navigate steps. The camera smoothly damps to preset viewing angles (`p`, `t`) for each step, and orbital control unlocks when resting.
 * **Code Anchors (Grep Targets):**
-  * `src/content/gptSteps.ts` -> `gptSteps`
-  * `src/content/moeSteps.ts` -> `moeSteps`, `chapters`
+  * `src/content/gptSteps.ts` -> `gptChapter`
+  * `src/content/moeSteps.ts` -> `moeChapter`, `chapters`
   * `src/three/CameraRig.tsx` -> `CameraRig`
   * `src/state/useSceneStore.ts` -> `useSceneStore`
 
@@ -33,18 +33,18 @@
 * **User Intention (Non-Negotiable):** Captions must remain legible, razor-sharp on high-DPI displays, and never overlap each other or cover the primary 3D geometry they describe.
 * **Visual / UI Behavior:** Floating text cards with cyan indicator pins track 3D positions across camera rotation. Candidate positions (top, bottom, left, right) are scored each frame to choose maximum clearance from other pins.
 * **Code Anchors (Grep Targets):**
-  * `src/three/labels/AnnotationOverlay.tsx` -> `placeCaptionCandidates`, `scoreCandidate`
+  * `src/three/labels/AnnotationOverlay.tsx` -> `placeOne`
   * `src/three/labels/LabelProjector.tsx` -> `LabelProjector`
-  * `src/scenes/annotations.ts` -> `gptAnnotations`, `moeAnnotations`
+  * `src/scenes/annotations.ts` -> `useAnnotations`
 
 ### [FEATURE: Real-Time-Math-Controls] | Aliases: interactive sliders, temperature slider, top-k gate, moe economics
 > **1-Line Summary:** Live parameter sliders that recompute mathematical probabilities and parameter allocation dynamically without reloading the scene.
 * **User Intention (Non-Negotiable):** Interactive sliders must immediately demonstrate the mathematical effects of temperature, Top-K gating, and expert capacity without desynchronizing state.
 * **Visual / UI Behavior:** Sliders appear in the narration card for relevant steps. Temperature slider re-normalizes softmax bars; Top-K slider illuminates active experts and recalculates active FLOP parameters.
 * **Code Anchors (Grep Targets):**
-  * `src/scenes/gptData.ts` -> `LOGIT_VALUES`, `LOGIT_SUM`
-  * `src/scenes/moeData.ts` -> `computeMoeEconomics`, `EXPERT_COUNT`
-  * `src/ui/Controls.tsx` -> `Controls`
+  * `src/scenes/gptData.ts` -> `LOGIT_VALUES`, `softmax`
+  * `src/scenes/moeData.ts` -> `activeParamsB`, `EXPERT_COUNT`
+  * `src/ui/NarrationPanel.tsx` -> `NarrationPanel`
   * `src/three/shared/BarChart.tsx` -> `BarChart`
 
 ### [FEATURE: X-Ray-Internal-Inspection] | Aliases: xray mode, see-through boxes, inner vectors, wireframe

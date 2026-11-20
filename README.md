@@ -61,6 +61,7 @@ npm run lint     # oxlint
 | `Space` | play / pause the step sequence |
 | `X` | X-ray — dissolve outer shells to reveal the vectors inside |
 | `L` | labels on / off |
+| `R` | reset camera view |
 | `N` | narrate this step aloud |
 | `Esc` | clear the current selection |
 | Drag | orbit |
@@ -97,7 +98,7 @@ is still speaking so steps are never cut off mid-sentence.
 ## Layout
 
 Three columns: the step rail, the 3D stage with its timeline, and the narration
-panel. Below 900 px wide the columns stack, the rail becomes a horizontal strip,
+panel. Below 980 px wide the columns stack, the rail becomes a horizontal strip,
 and the narration moves under the stage. Captions are re-placed every frame and
 are verified overlap-free from 980 px to 1920 px wide.
 
@@ -106,7 +107,6 @@ are verified overlap-free from 980 px to 1920 px wide.
 - [`docs/PRODUCT.md`](docs/PRODUCT.md) — user intentions, UX expectations, active features, and roadmap wishlist.
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — high-level system diagrams, tech stack rationale, subsystems, and extension recipes.
 - [`docs/DECISIONS_AND_TRAPS.md`](docs/DECISIONS_AND_TRAPS.md) — architectural choices, what failed, and do-not-touch engineering traps.
-- [`docs/VISUAL_GUIDE.html`](docs/VISUAL_GUIDE.html) — interactive browser dashboard rendering system flowcharts, features, and landmines visually.
 - [`docs/algorithms.md`](docs/algorithms.md) — the maths behind each visualised step, with flowcharts and formulas.
 - [`docs/verification.md`](docs/verification.md) — automated checks, caption clearance testing, and contrast audit results.
 - [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) — upstream open-source license notices and attributions.

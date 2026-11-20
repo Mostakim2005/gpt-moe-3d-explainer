@@ -46,7 +46,7 @@ flowchart LR
     end
 ```
 * **Code Anchors (Grep Targets):**
-  * `src/scenes/gptData.ts` -> `LOGIT_VALUES`, `LOGIT_SUM`
+  * `src/scenes/gptData.ts` -> `LOGIT_VALUES`, `softmax`
 
 ### [DECISION: Anchor-Aware-Screen-Space-Caption-Clearance] | Aliases: caption overlap, clear placement, 2d labels, candidate scoring
 > **1-Line Summary:** Replaced 3D in-canvas text with dynamic screen-space DOM candidate scoring to eliminate geometry collisions.
@@ -67,7 +67,7 @@ flowchart LR
     end
 ```
 * **Code Anchors (Grep Targets):**
-  * `src/three/labels/AnnotationOverlay.tsx` -> `placeCaptionCandidates`, `scoreCandidate`
+  * `src/three/labels/AnnotationOverlay.tsx` -> `placeOne`
   * `src/three/labels/LabelProjector.tsx` -> `LabelProjector`
 
 ---
@@ -95,5 +95,5 @@ flowchart LR
 * **Why This Trap Exists (Plain English):** React Fast Refresh requires that component files export only React components. Exporting data constants alongside components causes Vite to invalidate the entire module graph on edit, forcing a full browser page refresh that resets the user's active chapter and step position.
 * **Protected Code Anchors (Grep Targets):**
   * `src/scenes/gptData.ts` -> `LOGIT_VALUES`
-  * `src/scenes/moeData.ts` -> `computeMoeEconomics`
+  * `src/scenes/moeData.ts` -> `activeParamsB`
   * `src/scenes/GptScene.tsx` -> `GptScene`

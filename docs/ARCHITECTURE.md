@@ -5,7 +5,7 @@
 
 ```mermaid
 flowchart TB
-    subgraph UI["2D UI Shell (React + Framer Motion)"]
+    subgraph UI["2D UI Shell (React + CSS)"]
         CT[ChapterTabs]
         SL[StepList]
         NP[NarrationPanel]
@@ -57,7 +57,7 @@ flowchart TB
 | 3D Scene Graph | Three.js + `@react-three/fiber` + `@react-three/drei` | Declarative mapping of step visibility to component mounts, eliminating manual mesh lifecycle bugs. |
 | Post-Processing | `@react-three/postprocessing` | Clean Bloom and Vignette effects in a single pass without custom GLSL boilerplate. |
 | Global State | `zustand` | Lightweight reactive store accessible inside high-frequency `useFrame` render loops without re-rendering the DOM tree. |
-| 2D UI Transitions | `framer-motion` | Smooth slide transitions for narration text cards when navigating between steps. |
+| 2D UI Transitions | CSS `@keyframes` | Lightweight step-card entrance animations that respect `prefers-reduced-motion`. |
 | Neural Voice TTS | `kitten-tts-js` + `onnxruntime-web` | Highly compressed 15M-parameter neural TTS model running completely client-side in WebAssembly. |
 | Linter | `oxlint` | Sub-100ms ultra-fast lint checks covering 116 strict React and TypeScript rules. |
 
@@ -67,7 +67,7 @@ flowchart TB
 
 ### [SUBSYSTEM: Camera-Rig-Damping] | Aliases: camera rig, orbit controls, smooth transition, fov damper
 > **1-Line Summary:** Smoothly interpolates the camera position and focal target toward step presets while managing interaction lockouts.
-* **How It Works (Plain English):** Each step defines a target `position`, `target`, and `fov`. `CameraRig` calculates per-frame damped motion using `THREE.MathUtils.damp`. To avoid jarring conflicts between automated glides and manual dragging, orbital controls are disabled during camera movement and re-enabled upon arrival or immediate user mouse-down.
+* **How It Works (Plain English):** Each step defines a target `p` (position) and `t` (look-at target). `CameraRig` calculates per-frame damped motion using `THREE.MathUtils.damp`. To avoid jarring conflicts between automated glides and manual dragging, orbital controls are disabled during camera movement and re-enabled upon arrival or immediate user mouse-down.
 * **Data Flow Diagram:**
 ```mermaid
 sequenceDiagram
@@ -76,7 +76,7 @@ sequenceDiagram
     participant Rig as CameraRig
     participant Orbit as OrbitControls
     User->>Store: Navigate to Step N
-    Store->>Rig: New target pose (pos, target, fov)
+    Store->>Rig: New target pose (p, t)
     Rig->>Orbit: controls.enabled = false
     loop Every Frame (useFrame)
         Rig->>Rig: Damp camera position and target
@@ -106,8 +106,8 @@ sequenceDiagram
 ```
 * **Code Anchors (Grep Targets):**
   * `src/three/labels/LabelProjector.tsx` -> `LabelProjector`
-  * `src/three/labels/projection.ts` -> `projectPoint`
-  * `src/three/labels/AnnotationOverlay.tsx` -> `placeCaptionCandidates`, `scoreCandidate`
+  * `src/three/labels/projection.ts` -> `setProjected`, `projectedLabels`
+  * `src/three/labels/AnnotationOverlay.tsx` -> `placeOne`
 
 ### [SUBSYSTEM: Step-Visibility-And-Mesh-Damping] | Aliases: visibility window, damp, opacity fade, xray mesh
 > **1-Line Summary:** Declares explicit step ranges `[from, to)` for meshes, ensuring instant bidirectional scrubbing without desynchronized animations.
@@ -121,8 +121,8 @@ sequenceDiagram
 > **1-Line Summary:** Isolates numerical constants and token tables into pure data files to preserve React Fast Refresh during visual development.
 * **How It Works (Plain English):** Vite's Fast Refresh mechanism requires component files to export only React components. Exporting data constants alongside components causes full module invalidation on every edit. Separating `gptData.ts` and `moeData.ts` allows editing math values, token weights, and expert counts while keeping the active 3D view preserved in the browser.
 * **Code Anchors (Grep Targets):**
-  * `src/scenes/gptData.ts` -> `LOGIT_VALUES`, `ATTENTION_WEIGHTS`
-  * `src/scenes/moeData.ts` -> `computeMoeEconomics`, `ROUTER_WEIGHTS`
+  * `src/scenes/gptData.ts` -> `LOGIT_VALUES`, `ATTENTION`
+  * `src/scenes/moeData.ts` -> `activeParamsB`, `ROUTER_SCORES`
   * `src/scenes/GptScene.tsx` -> `GptScene`
 
 ### [SUBSYSTEM: Dual-Engine-TTS-Worker-Pipeline] | Aliases: kitten tts, web worker, single thread wasm, onnxruntime web
