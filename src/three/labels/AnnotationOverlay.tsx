@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { useSceneStore } from '../../state/useSceneStore';
-import { projectedLabels } from './projection';
+import { projectedLabels, subscribeProjection } from './projection';
 import type { Annotation, Placement } from './types';
 
 const PAD = 10;
@@ -141,10 +141,8 @@ function placeOne(
 }
 
 /**
- * DOM layer of floating captions, drawn above the WebGL canvas.
- *
- * Separates DOM measurement (read pass) from style updates (write pass) to
- * avoid per-caption forced synchronous reflows, and pauses in background tabs.
+ * DOM layer of floating captions, driven directly by LabelProjector's useFrame
+ * callback so captions stay frame-locked to 3D geometry with zero rAF lag.
  */
 export function AnnotationOverlay({ items }: { items: Annotation[] }) {
   const step = useSceneStore((s) => s.step);
@@ -164,26 +162,35 @@ export function AnnotationOverlay({ items }: { items: Annotation[] }) {
   const boxRefs = useRef(new Map<string, HTMLDivElement>());
   const lineRefs = useRef(new Map<string, SVGLineElement>());
   const dotRefs = useRef(new Map<string, SVGCircleElement>());
-  const disposed = useRef(false);
+  const sizesRef = useRef(new Map<string, { w: number; h: number }>());
 
   useEffect(() => {
     if (!labelsOn || visible.length === 0) return;
-    disposed.current = false;
-    let raf = 0;
 
-    const frame = () => {
-      if (disposed.current) return;
-      if (!document.hidden) {
-        raf = requestAnimationFrame(frame);
+    const measureAll = () => {
+      sizesRef.current.clear();
+      for (const a of visible) {
+        const el = boxRefs.current.get(a.id);
+        if (el) {
+          sizesRef.current.set(a.id, {
+            w: el.offsetWidth || 120,
+            h: el.offsetHeight || 34,
+          });
+        }
       }
+    };
 
+    measureAll();
+    const ro = new ResizeObserver(measureAll);
+    if (hostRef.current) ro.observe(hostRef.current);
+
+    const layout = () => {
       const host = hostRef.current;
       if (!host) return;
       const W = host.clientWidth;
       const H = host.clientHeight;
       if (!W || !H) return;
 
-      // Pass 1 (READ): measure all boxes before mutating any DOM styles.
       const entries: Array<{
         id: string;
         el: HTMLDivElement;
@@ -198,13 +205,17 @@ export function AnnotationOverlay({ items }: { items: Annotation[] }) {
         const el = boxRefs.current.get(a.id);
         const proj = projectedLabels.get(a.id);
         if (!el || !proj) continue;
+        const dim = sizesRef.current.get(a.id) ?? {
+          w: el.offsetWidth || 120,
+          h: el.offsetHeight || 34,
+        };
         entries.push({
           id: a.id,
           el,
           ax: clamp(proj.x, PAD, W - PAD),
           ay: clamp(proj.y, PAD, H - PAD),
-          w: el.offsetWidth || 120,
-          h: el.offsetHeight || 34,
+          w: dim.w,
+          h: dim.h,
           on: proj.visible,
         });
       }
@@ -212,7 +223,6 @@ export function AnnotationOverlay({ items }: { items: Annotation[] }) {
       const anchors: Point[] = entries.map((e) => ({ x: e.ax, y: e.ay }));
       entries.sort((p, q) => p.ay - q.ay);
 
-      // Pass 2 (WRITE): compute placement and apply transforms/SVG attributes.
       const placed: Box[] = [];
       for (const e of entries) {
         if (!e.on) {
@@ -253,19 +263,11 @@ export function AnnotationOverlay({ items }: { items: Annotation[] }) {
       }
     };
 
-    const onVisible = () => {
-      if (!document.hidden && !disposed.current) {
-        cancelAnimationFrame(raf);
-        raf = requestAnimationFrame(frame);
-      }
-    };
-
-    document.addEventListener('visibilitychange', onVisible);
-    raf = requestAnimationFrame(frame);
+    const unsub = subscribeProjection(layout);
+    layout();
     return () => {
-      disposed.current = true;
-      cancelAnimationFrame(raf);
-      document.removeEventListener('visibilitychange', onVisible);
+      unsub();
+      ro.disconnect();
     };
   }, [visible, visibleById, labelsOn]);
 

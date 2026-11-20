@@ -2,14 +2,12 @@ import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { useSceneStore } from '../../state/useSceneStore';
-import { clearProjected, setProjected } from './projection';
+import { clearProjected, notifyProjected, setProjected } from './projection';
 import type { Annotation } from './types';
 
 /**
- * Projects every annotation anchor to CSS pixels.
- *
- * Runs in the render loop while visible, and executes a single pass on
- * `visibilitychange` when returning from a background tab instead of polling.
+ * Projects every annotation anchor to CSS pixels and immediately notifies the
+ * DOM overlay in the same frame so captions stay locked to 3D geometry.
  */
 export function LabelProjector({ items }: { items: Annotation[] }) {
   const camera = useThree((s) => s.camera);
@@ -33,6 +31,7 @@ export function LabelProjector({ items }: { items: Annotation[] }) {
         onScreen,
       );
     }
+    notifyProjected();
   }, [items, vector, camera, size]);
 
   useFrame(project);
