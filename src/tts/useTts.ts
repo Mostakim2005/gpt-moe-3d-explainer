@@ -3,7 +3,6 @@ import { create } from 'zustand';
 export type TtsEngine = 'system' | 'kitten';
 export type TtsPhase = 'idle' | 'downloading' | 'warming' | 'ready' | 'error';
 
-const KITTEN_MODEL_LABEL = 'Kitten TTS Nano · 15M params · ~25 MB';
 const KITTEN_VOICES = ['Bella', 'Luna', 'Rosie', 'Kiki', 'Jasper', 'Bruno', 'Hugo', 'Leo'];
 
 interface TtsStore {
@@ -37,7 +36,10 @@ class KittenClient {
   private audio: AudioContext | null = null;
   private source: AudioBufferSourceNode | null = null;
   private loading: Promise<void> | null = null;
+  private reqId = 0;
+  private cancelPending: (() => void) | null = null;
   private onSamples: ((samples: Float32Array, sampleRate: number) => void) | null = null;
+  private onSpeakError: ((message: string) => void) | null = null;
   private onError: ((message: string) => void) | null = null;
 
   ensureLoaded(handlers: {
@@ -56,6 +58,8 @@ class KittenClient {
       this.worker = worker;
 
       const fail = (message: string) => {
+        this.worker?.terminate();
+        this.worker = null;
         this.loading = null;
         handlers.onError(message);
         reject(new Error(message));
@@ -64,6 +68,7 @@ class KittenClient {
       worker.onmessage = (event: MessageEvent) => {
         const msg = event.data as {
           type: string;
+          id?: number;
           loaded?: number;
           total?: number;
           stage?: TtsPhase;
@@ -85,13 +90,19 @@ class KittenClient {
             resolve();
             break;
           case 'audio':
-            if (msg.samples && msg.sampleRate) {
+            if (msg.id === this.reqId && msg.samples && msg.sampleRate) {
               this.onSamples?.(msg.samples, msg.sampleRate);
             }
             break;
           case 'error':
-            this.onError?.(msg.message ?? 'Unknown TTS error');
-            fail(msg.message ?? 'Unknown TTS error');
+            if (msg.id !== undefined) {
+              if (msg.id === this.reqId) {
+                this.onSpeakError?.(msg.message ?? 'Unknown TTS error');
+              }
+            } else {
+              this.onError?.(msg.message ?? 'Unknown TTS error');
+              fail(msg.message ?? 'Unknown TTS error');
+            }
             break;
         }
       };
@@ -119,21 +130,31 @@ class KittenClient {
     return this.audio;
   }
 
-  /** Synthesize one sentence and play it; resolves when playback finishes. */
+  /** Synthesize one sentence and play it; resolves when playback finishes or is cancelled. */
   speak(text: string, voice: string, speed: number): Promise<void> {
     const worker = this.worker;
     if (!worker) return Promise.reject(new Error('Model not loaded'));
+
+    this.cancelPending?.();
+    const id = ++this.reqId;
 
     return new Promise<void>((resolve) => {
       let settled = false;
       const finish = () => {
         if (settled) return;
         settled = true;
-        this.onSamples = null;
+        if (this.reqId === id) {
+          this.onSamples = null;
+          this.onSpeakError = null;
+          this.cancelPending = null;
+        }
         resolve();
       };
 
+      this.cancelPending = finish;
+
       this.onSamples = (samples, sampleRate) => {
+        if (this.reqId !== id) return;
         this.onSamples = null;
         const ctx = this.context();
         const buffer = ctx.createBuffer(1, samples.length, sampleRate);
@@ -148,36 +169,33 @@ class KittenClient {
         source.start();
       };
 
-      // A synthesis failure must not leave the narrator stuck in "speaking".
-      const previousError = this.onError;
-      this.onError = (message) => {
-        previousError?.(message);
-        this.onError = previousError;
+      this.onSpeakError = (message) => {
+        this.onError?.(message);
         finish();
       };
 
-      worker.postMessage({ type: 'speak', text, voice, speed });
+      worker.postMessage({ type: 'speak', id, text, voice, speed });
     });
   }
 
   stop() {
+    this.reqId++;
+    this.onSamples = null;
+    this.onSpeakError = null;
+    const cancel = this.cancelPending;
+    this.cancelPending = null;
     try {
       this.source?.stop();
     } catch {
       /* already stopped */
     }
     this.source = null;
-  }
-
-  dispose() {
-    this.stop();
-    this.worker?.terminate();
-    this.worker = null;
-    this.loading = null;
+    cancel?.();
   }
 }
 
 const kitten = new KittenClient();
+let speakSeq = 0;
 
 function systemVoiceList(): SpeechSynthesisVoice[] {
   if (typeof speechSynthesis === 'undefined') return [];
@@ -228,7 +246,8 @@ export const useTtsStore = create<TtsStore>((set, get) => ({
   dismissError: () => set({ error: null }),
 
   preload: async () => {
-    if (get().phase === 'ready' || get().phase === 'downloading') return;
+    const p = get().phase;
+    if (p === 'ready' || p === 'downloading' || p === 'warming') return;
     set({ phase: 'downloading', progress: 0, error: null });
     try {
       await kitten.ensureLoaded({
@@ -243,8 +262,9 @@ export const useTtsStore = create<TtsStore>((set, get) => ({
   },
 
   speak: async (text) => {
-    const { engine, rate, systemVoice, kittenVoice, phase } = get();
     get().stop();
+    const seq = ++speakSeq;
+    const { engine, rate, systemVoice, kittenVoice, phase } = get();
 
     if (engine === 'system') {
       if (typeof speechSynthesis === 'undefined') {
@@ -253,26 +273,29 @@ export const useTtsStore = create<TtsStore>((set, get) => ({
       }
       set({ speaking: true });
       await speakSystem(text, systemVoice, rate);
-      set({ speaking: false });
+      if (seq === speakSeq) set({ speaking: false });
       return;
     }
 
     if (phase !== 'ready') {
       await get().preload();
-      if (get().phase !== 'ready') return;
+      if (seq !== speakSeq || get().phase !== 'ready') return;
     }
 
     set({ speaking: true });
     try {
       await kitten.speak(text, kittenVoice, rate);
     } catch (error) {
-      set({ error: error instanceof Error ? error.message : String(error) });
+      if (seq === speakSeq) {
+        set({ error: error instanceof Error ? error.message : String(error) });
+      }
     } finally {
-      set({ speaking: false });
+      if (seq === speakSeq) set({ speaking: false });
     }
   },
 
   stop: () => {
+    speakSeq++;
     if (typeof speechSynthesis !== 'undefined') speechSynthesis.cancel();
     kitten.stop();
     set({ speaking: false });
@@ -296,4 +319,4 @@ kitten.setErrorHandler((message) =>
   useTtsStore.setState({ phase: 'error', error: message }),
 );
 
-export { KITTEN_VOICES, KITTEN_MODEL_LABEL };
+export { KITTEN_VOICES };

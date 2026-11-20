@@ -59,8 +59,7 @@ ort.env.wasm.simd = true;
 
 type Incoming =
   | { type: 'load'; wasmBase: string }
-  | { type: 'speak'; text: string; voice: string; speed: number }
-  | { type: 'release' };
+  | { type: 'speak'; id: number; text: string; voice: string; speed: number };
 
 interface ProgressMsg {
   type: 'progress';
@@ -137,6 +136,9 @@ ctx.onmessage = async (event: MessageEvent<Incoming>) => {
       ctx.postMessage({ type: 'ready', voices: tts.list_voices() });
       return;
     }
+    loadedBytes = 0;
+    totalBytes = 0;
+    lastReport = 0;
     try {
       ctx.postMessage({ type: 'stage', stage: 'downloading' });
       tts = await withSingleThread(() => KittenTTS.from_pretrained(MODEL_ID, {}));
@@ -155,7 +157,7 @@ ctx.onmessage = async (event: MessageEvent<Incoming>) => {
 
   if (msg.type === 'speak') {
     if (!tts) {
-      ctx.postMessage({ type: 'error', message: 'Model not loaded' });
+      ctx.postMessage({ type: 'error', id: msg.id, message: 'Model not loaded' });
       return;
     }
     try {
@@ -165,21 +167,15 @@ ctx.onmessage = async (event: MessageEvent<Incoming>) => {
       });
       const samples = new Float32Array(audio.data);
       ctx.postMessage(
-        { type: 'audio', samples, sampleRate: audio.sampling_rate },
+        { type: 'audio', id: msg.id, samples, sampleRate: audio.sampling_rate },
         [samples.buffer],
       );
     } catch (error) {
       ctx.postMessage({
         type: 'error',
+        id: msg.id,
         message: error instanceof Error ? error.message : String(error),
       });
     }
-    return;
-  }
-
-  if (msg.type === 'release') {
-    const session = tts as unknown as { release?: () => Promise<void> } | null;
-    await session?.release?.();
-    tts = null;
   }
 };
