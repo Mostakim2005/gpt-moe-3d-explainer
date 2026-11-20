@@ -1,23 +1,50 @@
+import { useState } from 'react';
 import { useSceneStore } from '../state/useSceneStore';
 import { getChapter, narrationText } from '../content';
+import { LOGIT_VALUES, LOGIT_WORDS, softmax } from '../scenes/gptData';
 import { TOTAL_PARAMS_B, activeParamsB } from '../scenes/moeData';
 import { VoicePanel } from './VoicePanel';
+
+function sampleToken(temperature: number, topP: number): { word: string; prob: number } {
+  const probs = softmax(LOGIT_VALUES, temperature);
+  const order = probs.map((_, i) => i).sort((a, b) => probs[b] - probs[a]);
+  const kept: Array<{ idx: number; p: number }> = [];
+  let cum = 0;
+  for (const idx of order) {
+    kept.push({ idx, p: probs[idx] });
+    cum += probs[idx];
+    if (cum >= topP) break;
+  }
+  const total = kept.reduce((acc, item) => acc + item.p, 0);
+  let r = Math.random() * total;
+  for (const item of kept) {
+    r -= item.p;
+    if (r <= 0) return { word: LOGIT_WORDS[item.idx], prob: item.p };
+  }
+  const last = kept[kept.length - 1];
+  return { word: LOGIT_WORDS[last.idx], prob: last.p };
+}
 
 export function NarrationPanel() {
   const chapter = useSceneStore((s) => s.chapter);
   const step = useSceneStore((s) => s.step);
   const temperature = useSceneStore((s) => s.temperature);
   const setTemperature = useSceneStore((s) => s.setTemperature);
+  const topP = useSceneStore((s) => s.topP);
+  const setTopP = useSceneStore((s) => s.setTopP);
   const topK = useSceneStore((s) => s.topK);
   const setTopK = useSceneStore((s) => s.setTopK);
   const loadBalancing = useSceneStore((s) => s.loadBalancing);
   const setLoadBalancing = useSceneStore((s) => s.setLoadBalancing);
+
+  const [sampled, setSampled] = useState<{ word: string; prob: number } | null>(null);
 
   const ch = getChapter(chapter);
   const current = ch.steps[Math.max(0, Math.min(ch.steps.length - 1, step))];
   if (!current) return null;
 
   const isGptTemp = chapter === 'gpt' && (current.id === 'logits' || current.id === 'sampling');
+  const isGptSampling = chapter === 'gpt' && current.id === 'sampling';
   const isMoeTopK = chapter === 'moe' && (current.id === 'topk' || current.id === 'experts');
   const isMoeEconomics = chapter === 'moe' && current.id === 'economics';
   const isMoeBalance = chapter === 'moe' && current.id === 'loadbalance';
@@ -102,6 +129,37 @@ export function NarrationPanel() {
               onChange={(e) => setTemperature(parseFloat(e.target.value))}
             />
           </label>
+        )}
+
+        {isGptSampling && (
+          <div className="slider">
+            <label className="slider-inner">
+              <span>
+                Top-p nucleus <strong>{topP.toFixed(2)}</strong>
+              </span>
+              <input
+                type="range"
+                min={0.1}
+                max={1}
+                step={0.05}
+                value={topP}
+                onChange={(e) => setTopP(parseFloat(e.target.value))}
+              />
+            </label>
+            <div className="sample-roll">
+              <button
+                className="seg-btn active"
+                onClick={() => setSampled(sampleToken(temperature, topP))}
+              >
+                Roll sample
+              </button>
+              {sampled && (
+                <span className="sample-result">
+                  Next token: <strong>&ldquo;{sampled.word}&rdquo;</strong> ({(sampled.prob * 100).toFixed(1)}%)
+                </span>
+              )}
+            </div>
+          </div>
         )}
 
         {isMoeTopK && (

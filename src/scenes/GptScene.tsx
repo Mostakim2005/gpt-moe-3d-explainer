@@ -18,15 +18,32 @@ import {
 
 const tokenX = (i: number) => chipX(i, GPT_TOKENS.length);
 
+/** Returns boolean mask of tokens kept inside the cumulative top-p nucleus. */
+function topPMask(probs: number[], topP: number): boolean[] {
+  const order = probs.map((_, i) => i).sort((a, b) => probs[b] - probs[a]);
+  const kept = new Array<boolean>(probs.length).fill(false);
+  let cum = 0;
+  for (const idx of order) {
+    kept[idx] = true;
+    cum += probs[idx];
+    if (cum >= topP) break;
+  }
+  return kept;
+}
+
 export function GptScene() {
   const step = useSceneStore((s) => s.step);
   const temperature = useSceneStore((s) => s.temperature);
+  const topP = useSceneStore((s) => s.topP);
+  const xray = useSceneStore((s) => s.xray);
 
   const probs = useMemo(() => softmax(LOGIT_VALUES, temperature), [temperature]);
+  const nucleus = useMemo(() => topPMask(probs, topP), [probs, topP]);
   const maxP = Math.max(...probs, 0.001);
-  const logitColors = probs.map((p, i) =>
-    i === 0 ? C.green : i === 1 ? C.cyan : p > 0.12 ? C.violet : C.muted,
-  );
+  const logitColors = probs.map((p, i) => {
+    if (step === 10 && !nucleus[i]) return '#2a344c';
+    return i === 0 ? C.green : i === 1 ? C.cyan : p > 0.12 ? C.violet : C.muted;
+  });
 
   return (
     <group>
@@ -158,7 +175,19 @@ export function GptScene() {
           range={[6, 7]}
           delay={0.12}
           pulse={0.9}
-        />
+        >
+          {xray && (
+            <VectorBarRow
+              count={5}
+              range={[6, 7]}
+              position={[0, -1.3, 0]}
+              height={2.6}
+              spacing={0.2}
+              barWidth={0.1}
+              palette={[C.cyan, C.amber]}
+            />
+          )}
+        </NeonBox>
         <NeonBox
           id="ffn-down"
           position={[0.9, 1.1, 0]}
@@ -196,7 +225,19 @@ export function GptScene() {
 
       {/* ---------- 7 · residual + LayerNorm ---------- */}
       <group position={[0, 1.8, 0]}>
-        <NeonBox id="block" position={[0, 0, 0]} size={[4.6, 2.6, 1.7]} color={C.cyan} range={[7, 8]} />
+        <NeonBox id="block" position={[0, 0, 0]} size={[4.6, 2.6, 1.7]} color={C.cyan} range={[7, 8]}>
+          {xray && (
+            <VectorBarRow
+              count={10}
+              range={[7, 8]}
+              position={[0, -0.9, 0]}
+              height={1.8}
+              spacing={0.34}
+              barWidth={0.14}
+              palette={[C.green, C.violet]}
+            />
+          )}
+        </NeonBox>
         <NeonBox
           id="attn-sublayer"
           position={[0, 0.55, 0.95]}

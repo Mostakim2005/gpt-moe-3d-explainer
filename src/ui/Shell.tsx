@@ -9,6 +9,7 @@ import { StepList } from './StepList';
 import { NarrationPanel } from './NarrationPanel';
 import { Timeline } from './Timeline';
 import { Controls } from './Controls';
+import { InspectorCard } from './InspectorCard';
 import { useTtsStore } from '../tts/useTts';
 
 export function Shell() {
@@ -121,6 +122,7 @@ export function Shell() {
           <div className="stage-canvas">
             <CanvasRoot annotations={annotations} />
             <AnnotationOverlay items={annotations} />
+            <InspectorCard />
           </div>
           <Timeline />
         </section>
@@ -132,7 +134,7 @@ export function Shell() {
 
       <footer className="shell-footer">
         <span>
-          Drag to orbit · Scroll to zoom · ← → step · Space play · N narrate · X x-ray · L labels ·
+          Drag to orbit · Scroll to zoom · Click a part to inspect · ← → step · Space play · N narrate · X x-ray · L labels ·
           R reset view
         </span>
         <span>

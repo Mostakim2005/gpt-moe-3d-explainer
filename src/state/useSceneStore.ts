@@ -14,6 +14,7 @@ interface SceneStore {
   bloom: boolean;
   selected: string | null;
   temperature: number;
+  topP: number;
   topK: 1 | 2 | 3 | 4;
   loadBalancing: boolean;
   cameraResetSeq: number;
@@ -29,6 +30,7 @@ interface SceneStore {
   setBloom: (v: boolean) => void;
   setSelected: (id: string | null) => void;
   setTemperature: (t: number) => void;
+  setTopP: (p: number) => void;
   setTopK: (k: 1 | 2 | 3 | 4) => void;
   setLoadBalancing: (v: boolean) => void;
   resetCamera: () => void;
@@ -52,6 +54,7 @@ export const useSceneStore = create<SceneStore>((set, get) => ({
   bloom: true,
   selected: null,
   temperature: 0.8,
+  topP: 0.9,
   topK: 2,
   loadBalancing: true,
   cameraResetSeq: 0,
@@ -74,6 +77,7 @@ export const useSceneStore = create<SceneStore>((set, get) => ({
   setBloom: (bloom) => set({ bloom }),
   setSelected: (selected) => set({ selected }),
   setTemperature: (temperature) => set({ temperature }),
+  setTopP: (topP) => set({ topP }),
   setTopK: (topK) => set({ topK }),
   setLoadBalancing: (loadBalancing) => set({ loadBalancing }),
   resetCamera: () => set((s) => ({ cameraResetSeq: s.cameraResetSeq + 1 })),

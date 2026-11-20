@@ -27,6 +27,7 @@ export function MoeScene() {
   const step = useSceneStore((s) => s.step);
   const topK = useSceneStore((s) => s.topK);
   const loadBalancing = useSceneStore((s) => s.loadBalancing);
+  const xray = useSceneStore((s) => s.xray);
 
   const active = useMemo(() => topKOf(ROUTER_SCORES, topK), [topK]);
   const histogram = loadBalancing ? HIST_BALANCED : HIST_COLLAPSED;
@@ -47,7 +48,19 @@ export function MoeScene() {
           size={[4.8, 2.1, 1.6]}
           color={C.cyan}
           range={[0, 1]}
-        />
+        >
+          {xray && (
+            <VectorBarRow
+              count={10}
+              range={[0, 1]}
+              position={[0, -0.75, 0]}
+              height={1.45}
+              spacing={0.38}
+              barWidth={0.14}
+              palette={[C.cyan, C.green]}
+            />
+          )}
+        </NeonBox>
         <VectorBarRow count={6} range={[0, 1]} position={[-5.6, 1.2, 0]} height={1.5} />
         <VectorBarRow
           count={6}
@@ -86,7 +99,19 @@ export function MoeScene() {
         range={[1, 3]}
         active={step === 1 || step === 2}
         pulse={1.1}
-      />
+      >
+        {xray && (
+          <VectorBarRow
+            count={4}
+            range={[1, 3]}
+            position={[0, -0.45, 0]}
+            height={0.9}
+            spacing={0.26}
+            barWidth={0.11}
+            palette={[C.violet, C.green]}
+          />
+        )}
+      </NeonBox>
       <Arc
         from={[-5.6, 1.8, 0]}
         to={[-4.2, 1.8, 0]}
@@ -134,7 +159,20 @@ export function MoeScene() {
               active={isActive}
               delay={isActive ? 0.1 * active.indexOf(i) : 0.35}
               pulse={isActive ? 1.5 : 0}
-            />
+            >
+              {xray && isActive && (
+                <VectorBarRow
+                  count={5}
+                  range={[3, 5]}
+                  position={[0, -0.42, 0]}
+                  height={0.82}
+                  spacing={0.26}
+                  barWidth={0.1}
+                  phase={i * 0.7}
+                  palette={[col, C.green]}
+                />
+              )}
+            </NeonBox>
           );
         })}
         <NeonBox
